@@ -272,10 +272,8 @@ Extend the APS Viewer toolbar with custom buttons that change the color of speci
 | APS Developer Portal | https://aps.autodesk.com |
 | APS Viewer documentation | https://aps.autodesk.com/en/docs/viewer/v7/reference |
 | APS Tutorials (Hubs Browser) | https://tutorials.autodesk.io |
-| Revit Sample Models (Autodesk) | Available on the APS portal under sample data / ACC Docs |
+| Revit Sample Models (Autodesk) | Available on the APS portal under sample data / ACC Docs or at this link https://help.autodesk.com/view/RVT/2026/ENU/?guid=GUID-61EF2F22-3A1F-4317-B925-1E85F138BE88 |
 | APS Free Tier | Create a free trial account at https://aps.autodesk.com — no credit card required |
-
-> **Tip:** Autodesk provides sample Revit models (`.rvt`) through the ACC (Autodesk Construction Cloud) sample hub. After creating your APS application, you can use the **Data Management API** to browse your hubs and obtain a model URN, or you can upload and translate a model manually using the **Model Derivative API**.
 
 ---
 
