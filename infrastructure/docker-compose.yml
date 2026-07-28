@@ -1,0 +1,13 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: aps-dev-test-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: aps_admin
+      MONGO_INITDB_ROOT_PASSWORD: aps_devpassword
+      MONGO_INITDB_DATABASE: aps-dev-test
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./mongo-data:/data/db
