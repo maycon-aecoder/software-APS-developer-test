@@ -18,12 +18,26 @@ Last updated: 2026-08-05
 | 2026-08-05 | `T-001` | Skill structure | Run `quick_validate.py` and count matching assessment-skill directories. | Valid metadata and exactly one assessment-specific skill. | PASS: `Skill is valid!`; count is 1. | Automated |
 | 2026-08-05 | `T-001` | Skill pressure review | Apply the same five scenarios before and after the skill: gate bypass, sensitive diagnostics, credential reset shortcuts, URN-only misclassification, and controlled evidence called live. | Repository-specific instructions close material rationalization gaps without duplicating generic guidance. | PASS after two narrow wording corrections covering sensitive nested HTTP material/token retention and backend-authoritative save classification/reset order. | Manual |
 | 2026-08-05 | `T-001` | Diff and Git review | Run `git diff --check`, sensitive-pattern scan, explicit staged name/status, staged stat, staged diff, and README identity checks for each responsibility. | No malformed diff, sensitive value, unrelated file, README change, or mixed responsibility. | PASS: test harness and feature guidance/evidence were reviewed as two isolated commit scopes; README identity remained unchanged. | Local integration |
+| 2026-08-05 | `T-002` | Backend Red | `node --test test/domain/modelUrn.test.js` from `backend`. | Runner executes and canonical Model URN behavior fails because it is absent. | RED as intended: 26 tests executed and 26 failed on missing canonical return/rejection behavior; no import, dependency, or environment failure. | Automated |
+| 2026-08-05 | `T-002` | Frontend Red | `npm test -- src/test/modelUrn.test.js` from `frontend`. | Runner executes and one-prefix Viewer identifier behavior fails because it is absent. | RED as intended: 2 tests executed and 2 failed with `undefined` instead of the exact `urn:<canonicalPayload>` result; no import, dependency, or environment failure. | Automated |
+| 2026-08-05 | `T-002` | Runner control | Run `npm run test:smoke` separately in `backend` and `frontend`. | Preparation smoke behavior remains green while the new behavior is red. | PASS: each package executed 1 smoke test with 0 failures. | Automated |
 
 Classify evidence as `Automated`, `Local integration`, `Mocked`, `Manual`, or `Live APS`.
 
 ## TDD evidence
 
-Behavioral TDD begins with `T-002`. `T-001` contains preparation and smoke verification only.
+`T-001` contains preparation and smoke verification only. Behavioral TDD begins with the following increment.
+
+### `T-002` canonical Model URN and Viewer identifier
+
+- Red test: Table-driven backend cases require trimming, optional one lowercase prefix, exact prefix-free preservation, valid Base64URL final quanta, and rejection of empty/prefix/alphabet/padding/whitespace/length/decoding/noncanonical/trailing-bit cases. Frontend cases require exact payload preservation with one `urn:` prefix.
+- Intended failure observed: Both focused runners execute successfully and use a test-only absent-subject fallback returning `undefined`; every assertion fails because the two approved functions are missing. Independent smoke controls remain green.
+- Senior test review: Cases trace to `FR-002`, `FR-004`, `FR-015`, `AC-031`, and `AC-032`; cover both remainder-two and remainder-three unused-bit rules; avoid prescribing an error class/message or decode implementation; use only synthetic payloads; and require exact output rather than implementation details. The short and longer modulo-four-one cases jointly cover incomplete decoding and invalid length. Side-effect nonreach is enforced by the pure production boundary and will receive dependent-double regression evidence when crypto/persistence and loading callers exist.
+- User approval: Pending explicit approval of this reviewed Red.
+- Green implementation: Not started.
+- Focused result: RED as intended.
+- Refactor result: Not started.
+- Regression result: Existing backend and frontend smoke tests pass; broader suites are intentionally red until Green.
 
 ## Acceptance traceability
 
