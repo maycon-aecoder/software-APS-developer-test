@@ -13,6 +13,7 @@ function createModel({
     [5, []],
   ]),
   fragments = new Map([
+    [2, [200]],
     [4, [40]],
     [5, [50]],
   ]),
@@ -22,7 +23,7 @@ function createModel({
   ]),
   names = new Map([
     [1, 'Model'],
-    [2, 'Doors'],
+    [2, 'Doors (2)'],
     [3, 'Organization'],
     [4, 'Door instance'],
     [5, 'Nested door geometry'],
@@ -142,7 +143,7 @@ test('uses category containers across early organizational levels and stops befo
     names: new Map([
       [1, 'Model'],
       [7, 'Discipline organization'],
-      [6, 'Doors'],
+      [6, 'Doors (2)'],
       [2, 'Door instance A'],
       [3, 'Nested door geometry'],
       [4, 'Door organization'],
@@ -167,6 +168,20 @@ test('fails conservatively when a category subtree and element Category property
   expect(() => resolveCategoryInstances(candidates, 'Doors')).toThrow(
     expect.objectContaining({ code: 'APS_CATEGORY_ANALYSIS_FAILED' }),
   );
+});
+
+test('does not treat descriptive labels with counts as category containers', async () => {
+  const model = createModel({
+    names: new Map([
+      [1, 'Model'],
+      [2, 'Door elements (2)'],
+      [3, 'Organization'],
+      [4, 'Door instance'],
+      [5, 'Nested door geometry'],
+    ]),
+  });
+
+  await expect(readModelCategoryCandidates(model)).resolves.toEqual([]);
 });
 
 test('fails instead of treating an invalid public tree root as an empty model', async () => {

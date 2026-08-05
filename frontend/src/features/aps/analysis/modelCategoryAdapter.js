@@ -1,6 +1,12 @@
 import { resolveCategoryAlias } from './categoryResolver';
 
 const DEFAULT_BATCH_SIZE = 200;
+const STRUCTURAL_COUNT_SUFFIX = / \(\d+\)$/;
+
+function resolveTreeCategoryAlias(value) {
+  if (typeof value !== 'string') return null;
+  return resolveCategoryAlias(value.replace(STRUCTURAL_COUNT_SUFFIX, ''));
+}
 
 function createAnalysisFailure() {
   return Object.assign(new Error('The model categories could not be analyzed safely.'), {
@@ -118,14 +124,14 @@ function collectCategoryCandidateIds(evidence) {
   }
 
   function visitOrganizationalBranch(dbId) {
-    if (evidence.directFragmentCounts.get(dbId) > 0) return;
-    const category = resolveCategoryAlias(evidence.nodeNames.get(dbId));
+    const category = resolveTreeCategoryAlias(evidence.nodeNames.get(dbId));
     if (category) {
       for (const childId of evidence.childIds.get(dbId) ?? []) {
         visitCategoryBranch(childId, category);
       }
       return;
     }
+    if (evidence.directFragmentCounts.get(dbId) > 0) return;
     for (const childId of evidence.childIds.get(dbId) ?? []) {
       visitOrganizationalBranch(childId);
     }

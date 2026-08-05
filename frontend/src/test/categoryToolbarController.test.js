@@ -108,6 +108,11 @@ test('owns exactly one native group with labeled unavailable controls before cat
     'aps-category-walls',
     'aps-category-doors',
   ]);
+  const expectedIcons = {
+    Doors: 'door_front',
+    Furniture: 'chair',
+    Walls: 'foundation',
+  };
   for (const category of ['Furniture', 'Walls', 'Doors']) {
     const button = findButton(harness, category);
     expect(button.state).toBe('disabled');
@@ -116,7 +121,8 @@ test('owns exactly one native group with labeled unavailable controls before cat
     expect(button.container.getAttribute('aria-disabled')).toBe('true');
     expect(button.container.getAttribute('aria-pressed')).toBe('false');
     expect(button.container.tabIndex).toBe(0);
-    expect(button.icon.textContent).toBe(category.at(0));
+    expect(button.icon.textContent).toBe(expectedIcons[category]);
+    expect(button.icon.classList.contains('material-symbols-outlined')).toBe(true);
     expect(button.icon.getAttribute('aria-hidden')).toBe('true');
     expect(button.tooltip).toBe(`Toggle ${category} color`);
   }

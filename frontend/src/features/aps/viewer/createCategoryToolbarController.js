@@ -1,5 +1,10 @@
 const TOOLBAR_CATEGORIES = Object.freeze(['Furniture', 'Walls', 'Doors']);
 const GROUP_ID = 'aps-category-controls';
+const CATEGORY_ICONS = Object.freeze({
+  Doors: 'door_front',
+  Furniture: 'chair',
+  Walls: 'foundation',
+});
 
 function createInitialCategoryState() {
   return {
@@ -127,11 +132,10 @@ export function createCategoryToolbarController({
     const label = `Toggle ${category} color`;
     button.setToolTip(label);
     if (!button.icon) throw new Error('APS_CATEGORY_BUTTON_ICON_UNAVAILABLE');
-    button.icon.textContent = category.at(0);
+    button.icon.classList.add('material-symbols-outlined');
+    button.icon.textContent = CATEGORY_ICONS[category];
     button.icon.setAttribute('aria-hidden', 'true');
-    button.icon.style.fontFamily = 'sans-serif';
-    button.icon.style.fontSize = '13px';
-    button.icon.style.fontWeight = '700';
+    button.icon.style.fontSize = '20px';
     button.container.setAttribute('role', 'button');
     button.container.setAttribute('aria-label', label);
     button.container.tabIndex = 0;
