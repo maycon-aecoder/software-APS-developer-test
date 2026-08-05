@@ -130,7 +130,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
   - Manual/live: `T-011` verifies actual URN-only reuse, credential-reset public lifecycle, new-credential model load, prior-runtime silence, document tree selection, WebGL, failure/retry, and cleanup.
   - Validation and rollback: Record `controlled` results; rollback lifecycle/controller wiring together and leave Viewer disabled/empty rather than downgrade credential replacement to same-runtime loading.
 
-- [ ] `T-008` Implement instance/category resolution and native toolbar/theming test-first
+- [x] `T-008` Implement instance/category resolution and native toolbar/theming test-first
   - Classification: Behavioral TDD.
   - Traceability: `FR-005`-`FR-009`, `FR-013`, `FR-018`, `FR-019`, `TC-005`, `TC-006`, `NFR-003`, `NFR-005`, `NFR-006`; `AC-011`, `AC-012`, `AC-013`, `AC-014`, `AC-015`, `AC-016`, `AC-021`-`AC-024`, `AC-029`, `AC-042`.
   - Depends on: `T-007`.

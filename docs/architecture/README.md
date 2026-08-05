@@ -55,7 +55,9 @@ Browser -> APS Viewer SDK using short-lived viewer access
 - One serialized lifecycle coordinator owns the public Initializer callback, Viewer, active model, and teardown sequence. URN-only changes reuse the healthy runtime; credential changes release the Viewer and global runtime before reinitialization; failed shutdown ownership is retained until teardown succeeds.
 - Model loading uses the canonical persisted URN and selects a supported default 3D geometry or the first supported public-child depth-first result. It never falls back to a 2D viewable.
 - Operation and runtime generations suppress stale document, model, and token-error publication. The React host owns mount/unmount disposal and exposes visible, screen-reader-announced retry feedback.
-- Category analysis, toolbar controls, theming, and quantity reporting remain unimplemented until their ordered tasks.
+- Category analysis discovers exact Revit category containers along pre-geometry organizational branches, selects the first renderable descendant on each category branch, and confirms its exact `Category` property before publishing a model-local instance `dbId`. The adapter stops at that first renderable node, so non-leaf instances remain eligible while nested geometry is not reused as another instance. Missing or contradictory identity evidence fails the affected category instead of reporting zero.
+- One feature-owned native toolbar group exposes independently available Furniture, Walls, and Doors controls with visible initial markers, full tooltips, and accessible labels/state. It applies active-model theming with distinct colors, rebuilds overlapping feature-owned colors on deactivation, clears state on model replacement, releases native ownership on teardown, and surfaces safe retry feedback when analysis or Viewer color operations fail.
+- Category analysis results and toolbar mutations pass through the lifecycle coordinator's active operation guard; obsolete model analysis cannot publish state or stale `dbId` values. Quantity reporting remains unimplemented until `T-009`.
 
 ### Infrastructure
 
