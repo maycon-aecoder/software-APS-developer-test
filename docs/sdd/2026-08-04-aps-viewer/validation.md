@@ -223,6 +223,16 @@ Classify evidence as `Automated`, `Local integration`, `Mocked`, `Manual`, or `L
 - Security/error review: Neither rendered text nor feedback contains `dbId`, raw properties, APS credentials, tokens, URNs, or raw SDK failures. Navigation failure uses one actionable English message. No dependency, storage, private Viewer API, or theming ownership was added.
 - Rollback: Remove the extension and its lifecycle id/result wiring, restore the prior page report, and leave secure configuration, token exchange, model loading, category resolution, theming, and quantity computation unchanged.
 
+### `T-011` partial live APS and local-security validation
+
+- Live runtime and derivative: PASS for matching Viewer JS/CSS paths pinned to `7.118.2`, one usable 3D Viewer region, real derivative rendering, native controls, and no captured Viewer/application console error. Only the base application's existing React Router future-flag warnings were present.
+- URN-only save: PASS with the currently configured canonical URN and blank secret field. The authenticated save succeeded, the 3D model returned ready, and exactly one Viewer region and one quantity command remained. Controlled lifecycle tests remain the evidence for internal no-reinitialization ordering because live instrumentation did not alter or wrap Viewer runtime functions.
+- Revit tree and quantities: PASS for direct-root category behavior without an element `Category` property dependency, recursive leaf results, 11 Door rows, 17 Window rows, official square-meter label mapping, total displays `21.20 m²` and `63.37 m²`, ordered individual rows, hidden structural root, and no displayed `dbId`/raw property record.
+- Native interaction: PASS for pointer and keyboard expansion, `aria-expanded`, element availability, category isolate-and-fit, toolbar/panel active-state synchronization, close-time isolation cleanup, and independent Furniture/Wall theming (both active together; turning Furniture off retained Walls; original states restored). Existing theming remained after quantity-panel close in the dedicated live check.
+- MongoDB read-only inspection: PASS for one current configuration, one unique `userId` index, unique per-user documents, canonical stored URN, a versioned encrypted envelope with ciphertext/IV/authentication tag, and absence of a plaintext `clientSecret` field. No stored value was printed.
+- Storage and audit: Static source inspection confirms APS access tokens remain transient; the base application intentionally retains only its existing application JWT/user session in `localStorage`. Live browser storage values and cookies were not inspected. `npm audit --omit=dev` reports zero backend vulnerabilities and two moderate frontend React Router advisories; no unrelated dependency remediation was performed.
+- Still `Not run`: observable ordinary APS token renewal; valid changed-client/non-empty-secret replacement and old-runtime silence; reset-failure recovery; live default/fallback 3D selection and explicit no-2D fallback; Chrome/Edge matrix; logout; live network-header/body and browser-storage inspection; unobstructed manual resize gesture; root README append/prefix checks. These require separate evidence or input and are not inferred from controlled tests.
+
 ## Acceptance traceability
 
 | Acceptance criterion | Evidence | Status | Gap |
