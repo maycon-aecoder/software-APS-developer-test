@@ -1,15 +1,5 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { expect, test, vi } from 'vitest';
-
-const subjectPath = path.resolve(
-  process.cwd(),
-  'src/features/aps/analysis/modelCategoryAdapter.js',
-);
-const subject = existsSync(subjectPath)
-  ? await import(/* @vite-ignore */ subjectPath)
-  : { readModelCategoryCandidates: () => Promise.resolve(undefined) };
-const { readModelCategoryCandidates } = subject;
+import { readModelCategoryCandidates } from '../features/aps/analysis/modelCategoryAdapter';
 
 function createModel({ batchSizeEvidence = [], failProperties = false } = {}) {
   const children = new Map([
@@ -94,6 +84,19 @@ test('fails conservatively when direct instance classification APIs are unavaila
   model.getObjectTree = vi.fn((onSuccess) => onSuccess({
     enumNodeChildren: (_dbId, callback) => callback(2),
     getRootId: () => 1,
+  }));
+
+  await expect(readModelCategoryCandidates(model)).rejects.toMatchObject({
+    code: 'APS_CATEGORY_ANALYSIS_FAILED',
+  });
+});
+
+test('fails instead of treating an invalid public tree root as an empty model', async () => {
+  const model = createModel();
+  model.getObjectTree = vi.fn((onSuccess) => onSuccess({
+    enumNodeChildren: vi.fn(),
+    enumNodeFragments: vi.fn(),
+    getRootId: () => undefined,
   }));
 
   await expect(readModelCategoryCandidates(model)).rejects.toMatchObject({

@@ -1,18 +1,8 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { expect, test } from 'vitest';
-
-const subjectPath = path.resolve(
-  process.cwd(),
-  'src/features/aps/analysis/categoryResolver.js',
-);
-const subject = existsSync(subjectPath)
-  ? await import(/* @vite-ignore */ subjectPath)
-  : {
-      resolveCategoryAlias: () => undefined,
-      resolveCategoryInstances: () => undefined,
-    };
-const { resolveCategoryAlias, resolveCategoryInstances } = subject;
+import {
+  resolveCategoryAlias,
+  resolveCategoryInstances,
+} from '../features/aps/analysis/categoryResolver';
 
 test.each([
   ['Furniture', 'Furniture'],

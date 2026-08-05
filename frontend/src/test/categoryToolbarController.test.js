@@ -1,24 +1,5 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { expect, test, vi } from 'vitest';
-
-const subjectPath = path.resolve(
-  process.cwd(),
-  'src/features/aps/viewer/createCategoryToolbarController.js',
-);
-const subject = existsSync(subjectPath)
-  ? await import(/* @vite-ignore */ subjectPath)
-  : {
-      createCategoryToolbarController: () => ({
-        dispose() {},
-        getSnapshot: () => ({ categories: {} }),
-        mount() {},
-        reset() {},
-        setCategoryFailed() {},
-        setCategoryReady() {},
-      }),
-    };
-const { createCategoryToolbarController } = subject;
+import { createCategoryToolbarController } from '../features/aps/viewer/createCategoryToolbarController';
 
 function createHarness({ toolbarInitiallyAvailable = true } = {}) {
   const controls = [];
