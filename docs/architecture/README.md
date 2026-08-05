@@ -39,8 +39,16 @@ Browser -> APS Viewer SDK using short-lived viewer access
 - `ApsConfiguration` is an additive one-record-per-user persistence boundary with a deliberately initialized unique user index.
 - The APS configuration service canonicalizes Model URNs, enforces Client Secret replacement/retention rules, and performs one complete atomic upsert.
 - `GET /api/aps/configuration` distinguishes no saved record from read failure; `PUT /api/aps/configuration` returns only safe settings and an authoritative save classification.
+- `POST /api/aps/token` reads and decrypts only the authenticated user's stored credentials, performs one no-store APS OAuth v2 client-credentials request with `viewables:read`, and returns only a validated short-lived token and positive lifetime.
 - Client Secrets are protected with native AES-256-GCM, a dedicated canonical Base64 environment key, and user-bound additional authenticated data. Safe projections and JSON serialization exclude the encrypted envelope.
 - Server startup awaits both the existing MongoDB connection and `ApsConfiguration.init()` before listening.
+
+### APS Viewer frontend boundary
+
+- The feature-local token API posts no browser credentials or scope and relies on the existing authenticated Axios instance.
+- A registration-scoped token provider exposes the supported `getAccessToken(onTokenReady)` callback shape for later Viewer initialization.
+- The provider keeps no token, supports ordinary callback renewal, and suppresses work/results after user, workspace, authentication-generation, runtime-generation, release, or clear invalidation.
+- Viewer runtime ownership, assets, model loading, and teardown remain unimplemented until their ordered tasks.
 
 ### Infrastructure
 

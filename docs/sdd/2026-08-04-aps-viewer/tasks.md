@@ -91,7 +91,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
   - Manual/live: Inspect representative safe network payloads without using real secrets.
   - Validation and rollback: Record `automated`/`controlled` evidence; remove only APS configuration route wiring and controller.
 
-- [ ] `T-005` Implement APS token service and supported Initializer callback test-first
+- [x] `T-005` Implement APS token service and supported Initializer callback test-first
   - Classification: Behavioral TDD.
   - Traceability: `FR-003`, `FR-017`-`FR-019`, `TC-002`, `TC-006`, `TC-007`, `NFR-003`-`NFR-006`; `AC-008`, `AC-009`, `AC-021`, `AC-023`, `AC-029`, `AC-033`, `AC-038`, `AC-045`, `AC-054`.
   - Depends on: `T-004`.
