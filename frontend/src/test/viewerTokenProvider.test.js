@@ -1,31 +1,7 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
+import { createViewerTokenProvider } from '../features/aps/viewer/createViewerTokenProvider';
 import { createDeferred } from './fixtures/viewerDoubles';
-
-const subjectPath = path.resolve(
-  process.cwd(),
-  'src/features/aps/viewer/createViewerTokenProvider.js',
-);
-const subject = existsSync(subjectPath)
-  ? await import(/* @vite-ignore */ subjectPath)
-  : {
-      createViewerTokenProvider: ({ requestToken }) => ({
-        clear() {},
-        registerContext: (context) => ({
-          getAccessToken(onTokenReady) {
-            void Promise.resolve()
-              .then(() => requestToken())
-              .then(() => onTokenReady(undefined, undefined))
-              .catch(() => context.onError?.(undefined));
-          },
-          release() {},
-        }),
-      }),
-    };
-
-const { createViewerTokenProvider } = subject;
 
 const baseContext = Object.freeze({
   userId: 'user-a',
@@ -119,6 +95,7 @@ test('discards an obsolete failure and notifies only the current registered work
     .mockReturnValueOnce(currentDeferred.promise);
   const staleNotify = vi.fn();
   const currentNotify = vi.fn();
+  const replacementNotify = vi.fn();
   const provider = createViewerTokenProvider({ requestToken });
   const staleRegistration = provider.registerContext({
     ...baseContext,
@@ -127,11 +104,13 @@ test('discards an obsolete failure and notifies only the current registered work
   staleRegistration.getAccessToken(vi.fn());
   await flushPromises();
 
-  const currentRegistration = provider.registerContext({
+  const currentContext = {
     ...baseContext,
     workspaceId: 'workspace-b',
     onError: currentNotify,
-  });
+  };
+  const currentRegistration = provider.registerContext(currentContext);
+  currentContext.onError = replacementNotify;
   currentRegistration.getAccessToken(vi.fn());
   await flushPromises();
   staleDeferred.reject(Object.assign(new Error('raw stale failure'), {
@@ -149,6 +128,7 @@ test('discards an obsolete failure and notifies only the current registered work
 
   expect(staleNotify).not.toHaveBeenCalled();
   expect(currentNotify).toHaveBeenCalledWith({ code: 'APS_CREDENTIALS_REJECTED' });
+  expect(replacementNotify).not.toHaveBeenCalled();
 });
 
 test('stops safely without requesting or publishing when its context is released', async () => {
@@ -185,6 +165,21 @@ test('logout-style clear discards an already pending token result', async () => 
   await flushPromises();
 
   expect(onTokenReady).not.toHaveBeenCalled();
+});
+
+test('clear before the request microtask prevents an obsolete backend token request', async () => {
+  const requestToken = vi.fn().mockResolvedValue({
+    accessToken: 'synthetic-access-token',
+    expiresIn: 3599,
+  });
+  const provider = createViewerTokenProvider({ requestToken });
+  const registration = provider.registerContext(baseContext);
+
+  registration.getAccessToken(vi.fn());
+  provider.clear();
+  await flushPromises();
+
+  expect(requestToken).not.toHaveBeenCalled();
 });
 
 const invalidTokenResults = [

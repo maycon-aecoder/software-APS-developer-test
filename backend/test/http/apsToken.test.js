@@ -27,7 +27,12 @@ function createToken() {
 function createControlledRouter() {
   const calls = [];
   let tokenError = null;
-  let tokenResult = { accessToken: 'synthetic-access-token', expiresIn: 3599 };
+  let tokenResult = {
+    accessToken: 'synthetic-access-token',
+    expiresIn: 3599,
+    refreshToken: 'must-not-be-returned',
+    clientSecret: 'must-not-be-returned',
+  };
   const configurationService = {
     async getConfiguration() {
       return null;

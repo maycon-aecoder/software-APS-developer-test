@@ -1,10 +1,12 @@
 const express = require('express');
 const { createApsConfigurationController } = require('../controllers/apsConfigurationController');
+const { createApsTokenController } = require('../controllers/apsTokenController');
 const { canonicalizeModelUrn } = require('../domain/modelUrn');
 const authMiddleware = require('../middleware/auth');
 const { ApsConfiguration } = require('../models/ApsConfiguration');
 const { createApsConfigEncryption } = require('../security/apsConfigEncryption');
 const { createApsConfigurationService } = require('../services/apsConfigurationService');
+const { createApsTokenService } = require('../services/apsTokenService');
 
 function createEnvironmentEncryption() {
   return {
@@ -21,27 +23,40 @@ function createEnvironmentEncryption() {
   };
 }
 
-function createDefaultConfigurationService() {
+function createDefaultConfigurationService(encryption) {
   return createApsConfigurationService({
     ApsConfiguration,
     canonicalizeModelUrn,
-    encryption: createEnvironmentEncryption(),
+    encryption,
   });
 }
 
 function createApsRouter({
-  configurationService = createDefaultConfigurationService(),
+  configurationService,
   logger = console,
+  tokenService,
 } = {}) {
   const router = express.Router();
+  const environmentEncryption = createEnvironmentEncryption();
+  const resolvedConfigurationService =
+    configurationService || createDefaultConfigurationService(environmentEncryption);
+  const resolvedTokenService = tokenService || createApsTokenService({
+    configurationService: resolvedConfigurationService,
+    encryption: environmentEncryption,
+  });
   const controller = createApsConfigurationController({
-    configurationService,
+    configurationService: resolvedConfigurationService,
     logger,
+  });
+  const tokenController = createApsTokenController({
+    logger,
+    tokenService: resolvedTokenService,
   });
 
   router.use(authMiddleware);
   router.get('/configuration', controller.getConfiguration);
   router.put('/configuration', controller.saveConfiguration);
+  router.post('/token', tokenController.getViewerToken);
 
   return router;
 }

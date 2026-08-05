@@ -1,16 +1,7 @@
 const assert = require('node:assert/strict');
-const { existsSync } = require('node:fs');
-const path = require('node:path');
 const test = require('node:test');
 
-const subjectPath = path.join(__dirname, '../../src/services/apsTokenService.js');
-const { createApsTokenService } = existsSync(subjectPath)
-  ? require(subjectPath)
-  : {
-      createApsTokenService: () => ({
-        getViewerToken: async () => undefined,
-      }),
-    };
+const { createApsTokenService } = require('../../src/services/apsTokenService');
 
 const userId = '66b28e44b8967d23c43e9371';
 const clientId = 'synthetic-client-id';
@@ -224,6 +215,38 @@ test('aborts one APS request after exactly ten seconds and clears the timer', as
   assert.equal(fetchCalls.length, 1);
 });
 
+test('keeps the ten-second abort active until the successful response body is parsed', async () => {
+  let timerCleared = false;
+  const response = createResponse({
+    jsonResult: {
+      access_token: 'synthetic-access-token',
+      expires_in: 3599,
+    },
+  });
+  const originalJson = response.json;
+  response.json = async () => {
+    assert.equal(timerCleared, false);
+    return originalJson();
+  };
+  const timedService = createApsTokenService({
+    configurationService: {
+      async getConfigurationForService() {
+        return { clientId, secretEnvelope };
+      },
+    },
+    encryption: { decryptClientSecret: () => clientSecret },
+    setTimeoutImpl: () => 'synthetic-timeout-id',
+    clearTimeoutImpl: () => {
+      timerCleared = true;
+    },
+    fetchImpl: async () => response,
+  });
+
+  await timedService.getViewerToken(userId);
+
+  assert.equal(timerCleared, true);
+});
+
 test('rejects malformed successful JSON as an invalid APS response', async () => {
   const { service } = createService({
     fetchImpl: async () => createResponse({
@@ -238,6 +261,21 @@ test('rejects malformed successful JSON as an invalid APS response', async () =>
       assert.equal(error.message.includes('synthetic-access-token'), false);
       return true;
     },
+  );
+});
+
+test('classifies an abort while reading the response body as temporary', async () => {
+  const { service } = createService({
+    fetchImpl: async () => createResponse({
+      jsonError: Object.assign(new Error('Synthetic body abort'), {
+        name: 'AbortError',
+      }),
+    }),
+  });
+
+  await assert.rejects(
+    service.getViewerToken(userId),
+    (error) => error.code === 'APS_TOKEN_TEMPORARY_FAILURE',
   );
 });
 
