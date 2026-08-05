@@ -156,7 +156,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
   - Manual/live: Before duplicate proof is accepted, `T-011` captures sanitized real property shapes and verifies the selected fields/stable identifier. Unsupported metadata remains ambiguous.
   - Validation and rollback: Record `automated`/`controlled` evidence; rollback report/orchestrator without affecting loaded geometry/toolbar.
 
-- [ ] `T-010` Compose the accessible workspace and converge automated evidence test-first
+- [x] `T-010` Compose the accessible workspace and converge automated evidence test-first
   - Classification: Behavioral TDD plus convergence review.
   - Traceability: `FR-001`, `FR-003`, `FR-008`-`FR-013`, `FR-017`-`FR-019`, `NFR-001`-`NFR-008`; `AC-014`-`AC-024`, `AC-025`, `AC-026`, `AC-029`, `AC-030`, `AC-034`-`AC-042`, `AC-045`, `AC-046`, `AC-048`-`AC-056`.
   - Depends on: `T-009`.
