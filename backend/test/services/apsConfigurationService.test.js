@@ -158,8 +158,11 @@ test('creates one complete per-user configuration atomically without persisting 
   assert.equal(write.options.projection.secretEnvelope, undefined);
   assert.equal(JSON.stringify(write.update).includes('synthetic-client-secret'), false);
   assert.deepEqual(result, {
-    clientId: 'synthetic-client-id',
-    modelUrn: 'dGVzdC1tb2RlbA',
+    configuration: {
+      clientId: 'synthetic-client-id',
+      modelUrn: 'dGVzdC1tb2RlbA',
+    },
+    changeType: 'credential-replacement',
   });
 });
 
@@ -172,7 +175,7 @@ test('retains the exact previous envelope when the client ID is unchanged and se
   };
   const { controlledEncryption, controlledModel, service } = createService({ initialDocument });
 
-  await service.saveConfiguration(userId, {
+  const result = await service.saveConfiguration(userId, {
     clientId: ' synthetic-client-id ',
     clientSecret: '   ',
     modelUrn: 'bmV3LW1vZGVs',
@@ -185,6 +188,25 @@ test('retains the exact previous envelope when the client ID is unchanged and se
     modelUrn: 'bmV3LW1vZGVs',
     secretEnvelope: existingEnvelope,
   });
+  assert.equal(result.changeType, 'urn-only');
+});
+
+test('classifies any submitted replacement secret as credential replacement', async () => {
+  const initialDocument = {
+    userId,
+    clientId: 'synthetic-client-id',
+    modelUrn: 'b2xkLW1vZGVs',
+    secretEnvelope: existingEnvelope,
+  };
+  const { service } = createService({ initialDocument });
+
+  const result = await service.saveConfiguration(userId, {
+    clientId: 'synthetic-client-id',
+    clientSecret: 'replacement-secret',
+    modelUrn: 'bmV3LW1vZGVs',
+  });
+
+  assert.equal(result.changeType, 'credential-replacement');
 });
 
 const invalidSecretRuleCases = [
