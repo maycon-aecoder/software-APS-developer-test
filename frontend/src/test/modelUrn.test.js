@@ -13,6 +13,8 @@ test.each([
 ])('constructs exactly one Viewer prefix and preserves canonical payload %s', (canonicalPayload) => {
   const documentId = toViewerDocumentId(canonicalPayload);
 
-  expect(documentId).toBe(`urn:${canonicalPayload}`);
-  expect(documentId.match(/urn:/g)).toHaveLength(1);
+  expect(
+    documentId,
+    'Expected the exact Viewer document identifier without re-encoding or double-prefixing',
+  ).toBe(`urn:${canonicalPayload}`);
 });
