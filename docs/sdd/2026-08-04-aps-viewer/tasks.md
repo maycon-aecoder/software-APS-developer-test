@@ -38,7 +38,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
 
 ## Tasks
 
-- [ ] `T-001` Prepare the single skill, focused test tooling, doubles, and continuous evidence
+- [x] `T-001` Prepare the single skill, focused test tooling, doubles, and continuous evidence
   - Classification: Preparation; not a behavioral Red-Green-Refactor increment.
   - Traceability: `FR-020`, `NFR-004`, `NFR-006`, `NFR-008`; `AC-028`-`AC-030`.
   - Depends on: Approved Gates 3 and 4 and explicit authorization to begin Gate 5.
