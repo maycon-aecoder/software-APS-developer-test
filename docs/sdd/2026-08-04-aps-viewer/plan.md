@@ -31,13 +31,14 @@ The plan adds no production framework, token cache, migration platform, transact
 | `FR-005`-`FR-007`, `TC-005` | Exact supported direct children of the active-model tree root identify categories; their unique recursive leaf descendants provide category element `dbId` values without reading an element property named `Category`. | Controlled root/category/intermediate/leaf fixtures and mandatory Revit evidence; `AC-011`-`AC-013`, `AC-029` |
 | `FR-008`, `FR-009` | One native toolbar group owns three controls with independent readiness, activation, feature-owned theming, no-match feedback, and isolated failure. | Toolbar/controller doubles, accessibility tests, live review; `AC-014`-`AC-016`, `AC-022`-`AC-024`, `AC-042` |
 | `FR-010`-`FR-012` | Unique matched-leaf counts; exact Area parsing; implementable duplicate predicate; exact unit compatibility; explicit complete, partial, unavailable, and failed states. | Table-driven domain tests, property orchestration doubles, real sanitized property shapes; `AC-017`-`AC-020`, `AC-034`, `AC-043`, `AC-044`, `AC-048`, `AC-049` |
+| `FR-023` | One separately registered quantity extension owns one native control group/button, one `DockingPanel`, and one `Tree`/`TreeDelegate`; sanitized aggregate and ordered per-element Area outcomes flow into it without React or color-controller coupling. | Pure detail rows, extension/panel controlled doubles, lifecycle integration, accessible DOM, and live Viewer evidence; `AC-057`-`AC-060` |
 | `FR-015`, `FR-016`, `FR-021`, `TC-004`, `NFR-004` | Unique per-user record, strict environment-key parsing, AES-256-GCM with user-bound AAD, safe projections, validation/encryption before one complete atomic update, and sanitized failures. | Crypto/service/router/index-startup/failure-injection tests; `AC-001`, `AC-003`-`AC-009`, `AC-033`, `AC-035`, `AC-036` |
 | `FR-018` | Stable failure codes become accessible, activity-specific English guidance; server diagnostics retain safe operation and cause context without sensitive data. | API and UI state tests plus manual review; `AC-016`, `AC-024`, `AC-035`-`AC-042`, `AC-046` |
 | `FR-020` | Gate 5 creates exactly one concise local `aps-viewer-assessment` skill that references repository guidance and approved artifacts. | Preparation verification; `AC-028`, `AC-030` |
 | `FR-014`, `FR-022`, `NFR-008` | Final delivery verifies root README against bytes from the approved Git baseline, appends one English section only after explicit authorization, and performs Git actions only when separately authorized. | Byte-prefix check, sanitized evidence, diff/status and branch review; `AC-027`, `AC-030`, `AC-047` |
 | `NFR-005`-`NFR-007` | Separate feature security, persistence, token, Viewer lifecycle, model analysis, pure domain, and presentation responsibilities; use focused doubles only. | Architecture/diff review and focused suites; `AC-026`, `AC-029` |
 
-All `FR-001`-`FR-022`, `TC-001`-`TC-007`, `NFR-001`-`NFR-008`, and `AC-001`-`AC-056` are covered by the grouped rows above and the task evidence map. No design gap blocks Gate 3 review.
+All `FR-001`-`FR-023`, `TC-001`-`TC-007`, `NFR-001`-`NFR-008`, and `AC-001`-`AC-060` are covered by the grouped rows above and the task evidence map. No design gap blocks Gate 3 review.
 
 ## Boundaries and data flow
 
@@ -75,7 +76,7 @@ Frontend:
 - Viewer controller: one instance, deterministic 3D selector, model lifecycle, toolbar ownership, theming, listeners, and cleanup.
 - Model analysis adapter: public Viewer tree/property adaptation, bounded reads, instance candidate classification, and staleness guards.
 - Pure domain: canonical URN, Category aliases, count identity, Area parsing, duplicate proof, unit compatibility, and report states.
-- Presentation: settings, Viewer host/status, report, accessible messages, and display-only numeric formatting.
+- Presentation: settings, Viewer host/status, native quantity-panel extension, accessible messages, and display-only numeric formatting.
 
 ## API and persistence contracts
 
@@ -180,6 +181,14 @@ Counts derive from deduplicated Door/Window instance sets before Area. Operation
 
 Domain parsing and aggregation retain the safe JavaScript numeric result and approved Area state. Formatting stays in presentation and cannot alter state, unit compatibility, or the calculated value. When all contributing properties expose consistent, trustworthy nonnegative precision metadata, the UI may use it for display. Otherwise it uses a documented simple assessment display, initially the shortest round-trippable JavaScript numeric string, subject to UI/live review. No 15-significant-digit rule, unit conversion, or arbitrary-precision dependency is planned.
 
+### Native quantity extension and detail contract
+
+The existing property adapter additionally retains only the containing result's trimmed public `name`. Pure quantity analysis emits ordered element rows `{ name, area }` alongside the unchanged aggregate state. `area` is either `{ status: "available", value, unit }` from the same single proven contribution used by aggregation or `{ status: "unavailable" }`; it never exposes `dbId`, raw property records, invalid values, or additional properties. Blank/missing names become `Door element N` or `Window element N` using stable one-based category-result order. The aggregate and detail computation share one contribution resolver so their outcomes cannot diverge.
+
+One feature-local registration factory registers `Aps.ModelQuantities` once per Viewer UI namespace and loads it through the owned Viewer. The extension owns a separate control group, labeled button, `DockingPanel`, and `Tree`/`TreeDelegate`. The panel is hidden initially. Button click toggles visibility and native active state; the panel close notification returns the button to inactive. Doors and Windows are initially collapsed group roots whose custom native-tree labels include count and total Area state. Expanding a root renders its ordered element names and individual Area/`Unavailable` values. Rows have no selection, isolation, fit, export, or property-expansion action.
+
+The lifecycle coordinator owns only the loaded extension reference. It resets the extension before old model unload, forwards sanitized current-generation quantity results, and releases its reference before `viewer.finish()`. URN-only replacement reuses the extension; credential replacement relies on Viewer `finish()` to invoke extension `unload()`, then loads exactly one new instance after reinitialization. Setup/update failures log only stable codes, keep geometry usable, and surface the existing model retry action. The page-level React quantity report is removed; React retains only Viewer status and retry feedback.
+
 ## Credential and lifecycle threat analysis
 
 | Threat | Control | Residual limitation |
@@ -250,7 +259,7 @@ No feature flag, migration framework, transaction, background job, production de
 
 ## ADR decision
 
-No ADR is required. The lifecycle amendment is feature-local, explicitly owned by amended Gate 2 requirements, and does not establish a repository-wide Viewer platform or shared credential-reset policy. Public shutdown/reinitialization is isolated behind one coordinator and remains reversible with the feature.
+No ADR is required. The lifecycle and native quantity-panel amendments are feature-local, explicitly owned by amended Gate 2 requirements, and do not establish a repository-wide Viewer platform, shared credential-reset policy, or reusable extension framework. Public shutdown/reinitialization and panel ownership remain reversible with the feature.
 
 ## Gap Ledger
 
@@ -263,6 +272,7 @@ No ADR is required. The lifecycle amendment is feature-local, explicitly owned b
 | `PLAN-GAP-005` | Resolved | Is a transaction or migration framework required? | Partial records are unacceptable; extra infrastructure is disproportionate. | One complete per-user atomic update, deliberate awaited unique index, safe failure mapping, and no backfill satisfy the requirement. |
 | `PLAN-GAP-006` | Resolved | Is an ADR required? | Either missing rationale or excess documentation is a risk. | No; decisions remain assessment-local. A product-contract change returns to Gate 2. |
 | `PLAN-GAP-007` | Resolved and amended by live evidence | How are category elements identified in the representative Revit tree? | Property-based classification failed because the derivative exposes no element `Category` property. | Match exact supported direct-root category nodes and use their unique recursive leaves. Controlled fixtures and live theming/count evidence protect the public-tree behavior. |
+| `PLAN-GAP-008` | Resolved | Which native Viewer UI owns the report and element detail? | Reusing the property panel cannot show the collapsed summary; custom page UI violates the requested Viewer workflow. | One separate `Autodesk.Viewing.Extension` owns a `DockingPanel` containing `Tree`/`TreeDelegate`; analysis stays outside the extension and sends only sanitized aggregate/detail state. |
 
 No material architectural, APS, security, lifecycle, migration, rollback, or test-design gap remains open. Real APS credentials and a representative translated Revit model are evidence dependencies, not design gaps, and unavailable checks remain explicitly open.
 
@@ -273,7 +283,7 @@ No material architectural, APS, security, lifecycle, migration, rollback, or tes
 - Security: Server-derived ownership, strict canonical 32-byte key parsing, AES-256-GCM with user AAD, explicit projections, complete atomic replacement, awaited unique index, least scope, timeout, no token persistence, and safe diagnostics remain covered. Credential replacement cannot reuse the old authentication generation.
 - Concurrency and lifecycle: Save intent determines generations: URN-only reuses runtime/Viewer; changed Client ID or any non-empty secret resets authentication/runtime after persistence; failure resets nothing. The lifecycle queue and generation-scoped promises cover stale callbacks, partial init, retry, logout, StrictMode, and unmount with no overlap or duplicate shutdown.
 - Model correctness: Exact supported direct-root categories and their recursive leaves provide model-local category element identity without an element `Category` property. Public deterministic viewable traversal, per-`dbId` theming rebuild, and executable Area duplicate identity remove prior ambiguity.
-- Complexity: No production dependency, general framework, migration system, transaction, precision package, token cache, or exhaustive SDK simulator is planned. Twelve reversible increments are proportionate to the assessment.
+- Complexity: No production dependency, general framework, migration system, transaction, precision package, token cache, React portal, or exhaustive SDK simulator is planned. One narrow amendment to the existing quantity/workspace increments remains proportionate to the assessment.
 - Testability: Preparation uses smoke checks, behavior uses real Red tests, controlled Viewer boundaries remain narrow, and real rendering/property claims remain live. Continuous `validation.md` preserves honest evidence and rollback history.
 - Rollback and delivery: Schema and wiring are additive; README uses the approved Git bytes; Git stays separately authorized. No destructive rollback or secret-bearing artifact is planned.
 
@@ -284,6 +294,7 @@ No material architectural, APS, security, lifecycle, migration, rollback, or tes
 - [x] No private Autodesk API is planned.
 - [x] `PLAN-GAP-004` is resolved by the amended public lifecycle and introduces no derivative proxy or undocumented token mechanism.
 - [x] The live-model category amendment is synchronized with the approved Specification and uses only the public instance tree.
+- [x] The native quantity-panel amendment uses a separate public extension, docking panel, and tree without coupling analysis to the color controls.
 - [x] Project owner approved the Technical Plan and implementation/test sequence on 2026-08-05. Tasks already exist; Git actions still require separate authorization.
 
 Technical Plan is `Approved`.

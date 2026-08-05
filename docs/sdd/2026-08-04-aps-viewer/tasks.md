@@ -30,6 +30,7 @@ T-001 Preparation: skill, tooling, evidence baseline
   -> T-008 Instance/category resolution, native toolbar, theming
   -> T-009 Quantity domain and property orchestration
   -> T-010 Accessible workspace and automated convergence
+  -> T-010A Native quantity extension and element detail amendment
   -> T-011 Real APS/manual validation and final documentation
   -> T-012 Explicitly authorized Git delivery
 ```
@@ -169,10 +170,23 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
   - Manual/live: Mark WebGL, real derivative/tree/properties, native toolbar, browser layout, ordinary renewal, URN-only reuse, credential reset/reinitialization, new-credential load, and prior-runtime silence `pending live` for `T-011`.
   - Validation and rollback: Record `automated`, `controlled`, and pending evidence without rewriting history; rollback only workspace composition/integration corrections.
 
+- [ ] `T-010A` Replace the page report with a native quantity extension and element detail test-first
+  - Classification: Behavioral TDD amendment approved by the project owner on 2026-08-05.
+  - Traceability: `FR-010`-`FR-013`, `FR-018`, `FR-019`, `FR-023`, `NFR-001`-`NFR-007`; `AC-017`-`AC-024`, `AC-029`, `AC-034`, `AC-043`, `AC-044`, `AC-048`, `AC-049`, `AC-057`-`AC-060`.
+  - Depends on: `T-010` and the approved native quantity-panel amendment.
+  - Red evidence: Extend adapter/domain/controller tests for trimmed public names, deterministic ordinal fallback, per-element contribution outcomes, no `dbId`/raw properties, and aggregate/detail consistency. Add controlled Viewer tests for one separately registered extension/group/button, `DockingPanel` plus `Tree`/`TreeDelegate`, initially collapsed Door/Window roots, summary labels, ordered element rows, button/close state synchronization, keyboard operation, reset, stale suppression, update/setup failure, and idempotent unload. Replace React report assertions with absence below Viewer and retained retry/status behavior.
+  - Expected failure: Aggregate-only quantity state and a page-level React report exist; no quantity extension registration, panel tree, element rows, or native lifecycle ownership exists.
+  - Approval checkpoint: The project owner selected option B and explicitly instructed implementation on 2026-08-05; proceed after senior Red review without another ritual pause unless review finds a material product decision.
+  - Minimum Green: Retain the public result `name`, produce safe ordered element detail from the existing Area contribution resolver, register/load one `Aps.ModelQuantities` extension, render the two native-tree roots in one docking panel, wire lifecycle reset/update/unload, and remove only the page-level report component/wiring.
+  - Refactor boundary: Share contribution evaluation between aggregate and detail; keep analysis outside the extension. Do not refactor color controls, introduce a generic extension framework, React portal, dependency, row action, extra property browser, persistence, or Viewer-private API.
+  - Regression: Run focused quantity, adapter, lifecycle, host, extension, and home tests; complete frontend suite and build; verify README identity, English content, secret-safe diff, no duplicate control/panel, and unchanged backend.
+  - Manual/live: Confirm the separate native command, initially collapsed summaries, expansion rows, `Unavailable` for the representative model's missing Area properties, command state on button and `X` close, model usability, layout, and cleanup. Do not report controlled tree doubles as native live proof.
+  - Validation and rollback: Record Red/Green/review/live evidence. Rollback removes the extension/detail amendment and restores the prior T-010 page report without touching analysis semantics, secure configuration, token flow, or color controls.
+
 - [ ] `T-011` Perform real APS/manual validation and append final documentation only when explicitly authorized
   - Classification: Validation and documentation; not a substitute for behavioral TDD.
   - Traceability: `FR-001`, `FR-003`-`FR-014`, `FR-017`-`FR-019`, `TC-001`, `TC-002`, `TC-005`-`TC-007`, `NFR-001`-`NFR-004`, `NFR-006`, `NFR-008`; `AC-008`-`AC-030`, `AC-037`-`AC-056`.
-  - Depends on: `T-010`, evaluator-authorized credentials and representative translated Revit source-design URN for live checks, and separate explicit authorization naming root `README.md` before any README write.
+  - Depends on: `T-010A`, evaluator-authorized credentials and representative translated Revit source-design URN for live checks, and separate explicit authorization naming root `README.md` before any README write.
   - Initial evidence: Keep every live-only item `Not run` until executed. Before README work, derive authoritative baseline bytes directly from current approved Git, compare working README byte-for-byte, and abort if any pre-existing byte differs. Do not accept a working-tree snapshot as the original baseline.
   - Live/manual checklist:
     - exact Viewer assets/runtime; ordinary callback renewal without reinitialization; URN-only replacement without reinitialization; changed Client ID and non-empty-secret replacement through public `finish()` then `shutdown()` then new Initializer; new persisted credentials loading the configured model; no overlapping runtime/Viewer; no obsolete prior-runtime callback/token/load/model/error publication; reset-failure retry/reload; derivative access; public-tree default/fallback 3D selection; and no 2D fallback;
@@ -212,10 +226,11 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
 | `AC-045`, `AC-046` | `T-005`-`T-007`, `T-010`, `T-011` |
 | `AC-047` | `T-011`, `T-012` |
 | `AC-050`-`AC-056` | `T-004`, `T-006`, `T-007`, `T-010`, `T-011` |
+| `AC-057`-`AC-060` | `T-010A`, `T-011` |
 
 ## Cross-artifact audit
 
-- Coverage: The traceability fields and evidence map cover every `FR-001`-`FR-022`, `TC-001`-`TC-007`, `NFR-001`-`NFR-008`, and `AC-001`-`AC-056` without adding product behavior beyond approved `spec.md`.
+- Coverage: The traceability fields and evidence map cover every `FR-001`-`FR-023`, `TC-001`-`TC-007`, `NFR-001`-`NFR-008`, and `AC-001`-`AC-060` without adding product behavior beyond approved `spec.md`.
 - Security order: Canonical input, crypto/persistence/index, authoritative save classification, and authenticated configuration contracts precede token, settings, serialized Viewer lifecycle, and analysis.
 - TDD order: `T-001` is preparation. `T-002` begins behavioral TDD. Each behavioral Red uses a functioning runner and missing behavior as its expected failure, includes approval before Green, and ends with focused regression and rollback evidence.
 - Lifecycle correctness: URN-only success reuses runtime/Viewer and advances model/analysis context; changed Client ID or any non-empty secret resets authentication/runtime only after persistence; failed save resets nothing. Lifecycle work is serialized with at-most-one ownership, public `finish()`/`shutdown()`/Initializer ordering, generation-scoped stale suppression, partial-failure retry, and idempotent logout/StrictMode/unmount. No undocumented token setter, proxy, private Autodesk API, element `Category` property dependency, deeper-node promotion, global theming clear, or arbitrary Area record/precision decision remains.
@@ -239,6 +254,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
 - [x] No Gate 5 implementation, test, dependency, skill, README, or Git action has started.
 - [x] `PLAN-GAP-004` is resolved in the synchronized Specification and Technical Plan.
 - [x] The live-model category correction synchronizes T-008/T-009 with exact direct-root categories and recursive leaves.
+- [x] The project-owner-approved native quantity-panel amendment is isolated in T-010A with explicit Red, Green, rollback, and live evidence.
 - [x] Gate 3 is approved.
 - [x] Project owner approved Tasks and authorized preparation plus the first behavioral Red on 2026-08-05. Green production code still requires explicit approval after reviewed Red evidence; README and Git actions require their own authorization.
 
