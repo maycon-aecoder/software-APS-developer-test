@@ -23,6 +23,7 @@ const baseCommand = Object.freeze({
 
 function createHarness({
   createModelAnalysis,
+  createQuantityAnalysis,
   createToolbarController,
   documentLoad,
   documentRoot,
@@ -108,6 +109,7 @@ function createHarness({
   const states = [];
   const coordinator = createViewerLifecycleCoordinator({
     createModelAnalysis,
+    createQuantityAnalysis,
     createToolbarController,
     loadAssets: loadAssets ?? vi.fn().mockResolvedValue(viewing),
     logger,
@@ -235,9 +237,209 @@ test('reuses toolbar ownership, resets old ids, and suppresses stale analysis on
   });
 });
 
-test('disposes toolbar ownership before finishing a Viewer during credential reset', async () => {
+test('forwards only sanitized Door and Window results into active quantity analysis', async () => {
+  let onCategoryResult;
+  let onQuantityResult;
+  const quantityAnalysis = {
+    acceptCategoryResult: vi.fn().mockResolvedValue(undefined),
+    dispose: vi.fn(),
+  };
+  const createModelAnalysis = vi.fn((options) => {
+    onCategoryResult = options.onCategoryResult;
+    return { dispose: vi.fn(), start: vi.fn().mockResolvedValue(undefined) };
+  });
+  const createQuantityAnalysis = vi.fn((options) => {
+    onQuantityResult = options.onQuantityResult;
+    return quantityAnalysis;
+  });
+  const harness = createHarness({ createModelAnalysis, createQuantityAnalysis });
+  await harness.coordinator.execute(command());
+
+  onCategoryResult({ category: 'Furniture', dbIds: [10], status: 'ready' });
+  onCategoryResult({ category: 'Doors', dbIds: [30, 30, 31], status: 'ready' });
+  onCategoryResult({ category: 'Windows', status: 'failed' });
+
+  expect(createQuantityAnalysis).toHaveBeenCalledWith(expect.objectContaining({
+    model: harness.viewers[0].model,
+    onDiagnostic: expect.any(Function),
+    onQuantityResult: expect.any(Function),
+  }));
+  expect(quantityAnalysis.acceptCategoryResult.mock.calls).toEqual([
+    [{ category: 'Doors', dbIds: [30, 31], status: 'ready' }],
+    [{ category: 'Windows', status: 'failed' }],
+  ]);
+
+  onQuantityResult({
+    area: { status: 'loading', total: null, unit: null },
+    category: 'Doors',
+    count: 2,
+    status: 'analyzing',
+  });
+  onQuantityResult({
+    area: { status: 'complete', total: 3.5, unit: 'm²' },
+    category: 'Doors',
+    count: 2,
+    status: 'ready',
+  });
+
+  expect(harness.coordinator.getSnapshot()).toMatchObject({
+    phase: 'ready',
+    quantities: {
+      Doors: {
+        area: { status: 'complete', total: 3.5, unit: 'm²' },
+        category: 'Doors',
+        count: 2,
+        status: 'ready',
+      },
+    },
+  });
+});
+
+test('maps a synchronous quantity-controller failure without breaking the ready model', async () => {
+  let onCategoryResult;
+  const logger = { error: vi.fn() };
+  const createModelAnalysis = vi.fn((options) => {
+    onCategoryResult = options.onCategoryResult;
+    return { dispose: vi.fn(), start: vi.fn().mockResolvedValue(undefined) };
+  });
+  const createQuantityAnalysis = vi.fn(() => ({
+    acceptCategoryResult: vi.fn(() => {
+      throw new Error('raw quantity-controller failure');
+    }),
+    dispose: vi.fn(),
+  }));
+  const harness = createHarness({ createModelAnalysis, createQuantityAnalysis, logger });
+  await harness.coordinator.execute(command());
+
+  expect(() => onCategoryResult({ category: 'Doors', dbIds: [1], status: 'ready' }))
+    .not.toThrow();
+  expect(harness.coordinator.getSnapshot()).toMatchObject({
+    phase: 'ready',
+    quantities: {
+      Doors: {
+        area: { status: 'failed', total: null, unit: null },
+        category: 'Doors',
+        count: 1,
+        status: 'ready',
+      },
+    },
+  });
+  expect(JSON.stringify(logger.error.mock.calls)).not.toContain('raw quantity-controller failure');
+});
+
+test('maps malformed current quantity output to an actionable safe fallback', async () => {
+  let onQuantityResult;
+  const logger = { error: vi.fn() };
+  const createModelAnalysis = vi.fn(() => ({
+    dispose: vi.fn(),
+    start: vi.fn().mockResolvedValue(undefined),
+  }));
+  const createQuantityAnalysis = vi.fn((options) => {
+    onQuantityResult = options.onQuantityResult;
+    return { acceptCategoryResult: vi.fn(), dispose: vi.fn() };
+  });
+  const harness = createHarness({ createModelAnalysis, createQuantityAnalysis, logger });
+  await harness.coordinator.execute(command());
+
+  onQuantityResult({
+    area: { status: 'loading', total: null, unit: null },
+    category: 'Doors',
+    count: 2,
+    status: 'analyzing',
+  });
+  onQuantityResult({
+    area: { status: 'complete', total: 'unsafe', unit: 'm²' },
+    category: 'Doors',
+    count: 2,
+    raw: 'must-not-cross',
+    status: 'ready',
+  });
+
+  expect(harness.coordinator.getSnapshot().quantities.Doors).toEqual({
+    area: { status: 'failed', total: null, unit: null },
+    category: 'Doors',
+    count: 2,
+    status: 'ready',
+  });
+  expect(JSON.stringify(harness.coordinator.getSnapshot())).not.toContain('must-not-cross');
+  expect(JSON.stringify(logger.error.mock.calls)).not.toContain('must-not-cross');
+});
+
+test('disposes and clears replaced quantity state while suppressing stale results and diagnostics', async () => {
+  const logger = { error: vi.fn() };
+  const categoryCallbacks = [];
+  const quantityCallbacks = [];
+  const quantityDiagnosticCallbacks = [];
+  const quantityAnalyses = [];
+  const createModelAnalysis = vi.fn(({ onCategoryResult }) => {
+    categoryCallbacks.push(onCategoryResult);
+    return { dispose: vi.fn(), start: vi.fn().mockResolvedValue(undefined) };
+  });
+  const createQuantityAnalysis = vi.fn(({ onDiagnostic, onQuantityResult }) => {
+    quantityCallbacks.push(onQuantityResult);
+    quantityDiagnosticCallbacks.push(onDiagnostic);
+    const analysis = { acceptCategoryResult: vi.fn(), dispose: vi.fn() };
+    quantityAnalyses.push(analysis);
+    return analysis;
+  });
+  const harness = createHarness({ createModelAnalysis, createQuantityAnalysis, logger });
+  await harness.coordinator.execute(command());
+  expect(quantityCallbacks).toHaveLength(1);
+  if (!quantityCallbacks[0]) return;
+  quantityCallbacks[0]({
+    area: { status: 'complete', total: 10, unit: 'm²' },
+    category: 'Doors',
+    count: 1,
+    status: 'ready',
+  });
+  expect(harness.coordinator.getSnapshot().quantities.Doors.count).toBe(1);
+
+  await harness.coordinator.execute(command({
+    type: 'replace-model',
+    configuration: { modelUrn: 'bmV3LW1vZGVs' },
+    generations: { configuration: 2, model: 2, analysis: 2 },
+  }));
+
+  expect(quantityAnalyses[0].dispose).toHaveBeenCalledTimes(1);
+  expect(harness.coordinator.getSnapshot().quantities).toBeUndefined();
+  quantityCallbacks[0]({
+    area: { status: 'failed', total: null, unit: null },
+    category: 'Doors',
+    count: 1,
+    status: 'ready',
+  });
+  quantityDiagnosticCallbacks[0]({
+    category: 'Doors',
+    code: 'APS_AREA_ANALYSIS_FAILED',
+    raw: 'obsolete raw failure',
+    stage: 'read',
+  });
+  expect(harness.coordinator.getSnapshot().quantities).toBeUndefined();
+  expect(JSON.stringify(logger.error.mock.calls)).not.toContain('obsolete raw failure');
+
+  quantityCallbacks[1]({ category: 'Windows', count: null, status: 'failed' });
+  expect(harness.coordinator.getSnapshot().quantities).toEqual({
+    Windows: { category: 'Windows', count: null, status: 'failed' },
+  });
+  expect(categoryCallbacks).toHaveLength(2);
+});
+
+test('disposes quantity and toolbar ownership before finishing a Viewer during credential reset', async () => {
   const ownershipCalls = [];
+  const quantityAnalyses = [];
   const toolbarControllers = [];
+  const createModelAnalysis = vi.fn(() => ({
+    dispose: vi.fn(),
+    start: vi.fn().mockResolvedValue(undefined),
+  }));
+  const createQuantityAnalysis = vi.fn(() => {
+    const analysis = {
+      acceptCategoryResult: vi.fn(),
+      dispose: vi.fn(() => ownershipCalls.push('quantity-dispose')),
+    };
+    quantityAnalyses.push(analysis);
+    return analysis;
+  });
   const createToolbarController = vi.fn(() => {
     const controller = {
       dispose: vi.fn(() => ownershipCalls.push('toolbar-dispose')),
@@ -247,7 +449,11 @@ test('disposes toolbar ownership before finishing a Viewer during credential res
     toolbarControllers.push(controller);
     return controller;
   });
-  const harness = createHarness({ createToolbarController });
+  const harness = createHarness({
+    createModelAnalysis,
+    createQuantityAnalysis,
+    createToolbarController,
+  });
   await harness.coordinator.execute(command());
   harness.viewers[0].finish.mockImplementation(() => ownershipCalls.push('finish'));
 
@@ -262,7 +468,13 @@ test('disposes toolbar ownership before finishing a Viewer during credential res
     },
   }));
 
-  expect(ownershipCalls.slice(0, 2)).toEqual(['toolbar-dispose', 'finish']);
+  expect(ownershipCalls.slice(0, 3)).toEqual([
+    'quantity-dispose',
+    'toolbar-dispose',
+    'finish',
+  ]);
+  expect(quantityAnalyses).toHaveLength(2);
+  expect(quantityAnalyses[0].dispose).toHaveBeenCalledTimes(1);
   expect(toolbarControllers).toHaveLength(2);
   expect(toolbarControllers[0].dispose).toHaveBeenCalledTimes(1);
   expect(toolbarControllers[1].mount).toHaveBeenCalledTimes(1);
