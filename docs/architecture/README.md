@@ -26,7 +26,9 @@ Browser -> APS Viewer SDK using short-lived viewer access
 - React Router owns public authentication routes and the protected `/home` route.
 - `AuthContext` stores the current JWT and user in `localStorage`.
 - A shared Axios instance sends the JWT as a bearer token.
-- `HomePage.jsx` contains the assessment placeholder and is the intended integration surface.
+- `HomePage.jsx` preserves the existing shell and hosts the feature-local APS settings panel.
+- The settings API uses the shared authenticated Axios client; a reducer and controller keep attempted values separate from durable committed configuration, guard user/workspace operations, and advance monotonic lifecycle generations only after an authoritative successful save.
+- The browser retains a Client Secret only in the password input state until its active save succeeds. Safe configuration reads and saves are explicitly whitelisted before entering committed state or lifecycle commands.
 - Tailwind utility classes provide styling; there is no separate component library.
 
 ### Backend
@@ -48,6 +50,7 @@ Browser -> APS Viewer SDK using short-lived viewer access
 - The feature-local token API posts no browser credentials or scope and relies on the existing authenticated Axios instance.
 - A registration-scoped token provider exposes the supported `getAccessToken(onTokenReady)` callback shape for later Viewer initialization.
 - The provider keeps no token, supports ordinary callback renewal, and suppresses work/results after user, workspace, authentication-generation, runtime-generation, release, or clear invalidation.
+- Successful settings reads emit initial-load context. Durable URN-only saves emit same-runtime model replacement context; durable credential replacement emits controlled-reset context. Empty/read-error/failed/stale operations emit none.
 - Viewer runtime ownership, assets, model loading, and teardown remain unimplemented until their ordered tasks.
 
 ### Infrastructure
@@ -78,7 +81,7 @@ These are existing conditions, not authorization to fix them opportunistically:
 - JWTs are stored in `localStorage`, and token expiry is not proactively checked.
 - There is no response interceptor for centralized `401` handling.
 - Environment variables are not schema-validated at startup.
-- There are no automated tests, linting, formatting scripts, or CI checks.
+- Focused backend and frontend automated tests now exist; linting, formatting scripts, and CI checks do not.
 - Dependency audits reported existing development and frontend findings on 2026-08-04; remediation requires a separately approved scope.
 
 ## APS security boundary

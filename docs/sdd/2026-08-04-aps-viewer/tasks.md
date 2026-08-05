@@ -104,7 +104,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
   - Manual/live: Real ordinary callback renewal without runtime reinitialization is mandatory in `T-011`; controlled results stay non-live.
   - Validation and rollback: Record `automated`/`controlled` results; rollback token route/provider without changing stored configuration.
 
-- [ ] `T-006` Implement frontend settings and authoritative save commit-point state test-first
+- [x] `T-006` Implement frontend settings and authoritative save commit-point state test-first
   - Classification: Behavioral TDD.
   - Traceability: `FR-001`, `FR-002`, `FR-013`, `FR-015`, `FR-016`, `FR-018`, `FR-019`, `FR-021`, `NFR-001`-`NFR-006`; `AC-001`-`AC-006`, `AC-021`, `AC-022`, `AC-024`, `AC-029`-`AC-032`, `AC-035`-`AC-039`, `AC-046`, `AC-050`-`AC-052`, `AC-056`.
   - Depends on: `T-005`.
