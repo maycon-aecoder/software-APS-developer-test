@@ -51,7 +51,11 @@ Browser -> APS Viewer SDK using short-lived viewer access
 - A registration-scoped token provider exposes the supported `getAccessToken(onTokenReady)` callback shape for later Viewer initialization.
 - The provider keeps no token, supports ordinary callback renewal, and suppresses work/results after user, workspace, authentication-generation, runtime-generation, release, or clear invalidation.
 - Successful settings reads emit initial-load context. Durable URN-only saves emit same-runtime model replacement context; durable credential replacement emits controlled-reset context. Empty/read-error/failed/stale operations emit none.
-- Viewer runtime ownership, assets, model loading, and teardown remain unimplemented until their ordered tasks.
+- One feature-local asset loader pins matching Viewer JavaScript and CSS to `7.118.2`, shares in-flight work, reports either asset failure, and permits clean retry.
+- One serialized lifecycle coordinator owns the public Initializer callback, Viewer, active model, and teardown sequence. URN-only changes reuse the healthy runtime; credential changes release the Viewer and global runtime before reinitialization; failed shutdown ownership is retained until teardown succeeds.
+- Model loading uses the canonical persisted URN and selects a supported default 3D geometry or the first supported public-child depth-first result. It never falls back to a 2D viewable.
+- Operation and runtime generations suppress stale document, model, and token-error publication. The React host owns mount/unmount disposal and exposes visible, screen-reader-announced retry feedback.
+- Category analysis, toolbar controls, theming, and quantity reporting remain unimplemented until their ordered tasks.
 
 ### Infrastructure
 

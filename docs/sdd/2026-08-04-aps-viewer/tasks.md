@@ -117,7 +117,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
   - Manual/live: Keyboard/password/autofill and error clarity continue in `T-010`/`T-011`.
   - Validation and rollback: Record `automated` evidence; rollback settings/orchestrator while leaving backend behavior intact.
 
-- [ ] `T-007` Implement serialized Viewer lifecycle, deterministic 3D loading, replacement, and cleanup test-first
+- [x] `T-007` Implement serialized Viewer lifecycle, deterministic 3D loading, replacement, and cleanup test-first
   - Classification: Behavioral TDD.
   - Traceability: `FR-003`, `FR-004`, `FR-013`, `FR-017`-`FR-019`, `TC-001`, `TC-006`, `TC-007`, `NFR-002`-`NFR-006`; `AC-008`, `AC-010`, `AC-021`-`AC-023`, `AC-029`, `AC-036`-`AC-039`, `AC-040`, `AC-041`, `AC-045`, `AC-046`, `AC-050`, `AC-051`, `AC-052`, `AC-053`, `AC-054`, `AC-055`, `AC-056`.
   - Depends on: `T-006`.
