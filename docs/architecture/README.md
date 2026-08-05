@@ -1,7 +1,7 @@
 # Architecture Overview
 
-Status: Current baseline
-Last updated: 2026-08-04
+Status: Current implementation
+Last updated: 2026-08-05
 
 ## System context
 
@@ -13,7 +13,7 @@ Browser (React/Vite)
 Express API
   -> MongoDB through Mongoose
 
-Future assessment boundary:
+Approved assessment boundary under incremental implementation:
 Browser -> authenticated Express APS endpoints -> Autodesk Platform Services
 Browser -> APS Viewer SDK using short-lived viewer access
 ```
@@ -36,6 +36,10 @@ Browser -> APS Viewer SDK using short-lived viewer access
 - Mongoose owns MongoDB persistence.
 - Authentication routes register and sign in users, returning `{ token, user }`.
 - The JWT middleware exists but is not currently mounted on a protected API route.
+- `ApsConfiguration` is an additive one-record-per-user persistence boundary with a deliberately initialized unique user index.
+- The APS configuration service canonicalizes Model URNs, enforces Client Secret replacement/retention rules, and performs one complete atomic upsert.
+- Client Secrets are protected with native AES-256-GCM, a dedicated canonical Base64 environment key, and user-bound additional authenticated data. Safe projections and JSON serialization exclude the encrypted envelope.
+- Server startup awaits both the existing MongoDB connection and `ApsConfiguration.init()` before listening.
 
 ### Infrastructure
 
@@ -70,6 +74,6 @@ These are existing conditions, not authorization to fix them opportunistically:
 
 ## APS security boundary
 
-The assessment asks users to enter an APS client ID, client secret, and model URN in the UI. The client secret must remain transient: never store it in `localStorage`, session storage, IndexedDB, URLs, logs, analytics, source code, fixtures, or committed files. The approved design must route credential exchange through the backend and expose only the minimum short-lived token material required by the viewer.
+The assessment asks users to enter an APS client ID, client secret, and model URN in the UI. The client secret must remain transient in the browser: never store it in `localStorage`, session storage, IndexedDB, URLs, logs, analytics, source code, fixtures, or committed files. The backend persists only an authenticated encrypted envelope and never exposes it through the safe configuration boundary. Credential exchange must remain on the backend and expose only the minimum short-lived token material required by the Viewer.
 
-Detailed APS architecture will be decided only after the feature's discovery, specification, and technical-plan gates are approved.
+The approved feature contract and technical architecture are maintained under `docs/sdd/2026-08-04-aps-viewer/`. This overview records only boundaries that have reached implementation.

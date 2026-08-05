@@ -65,7 +65,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
   - Manual/live: None required for syntax; inaccessible/untranslated canonical URN remains `T-011` live evidence.
   - Validation and rollback: Record Red/Green/regression as `automated`; remove only the URN domain and callers introduced here.
 
-- [ ] `T-003` Implement encryption, per-user persistence, deliberate index startup, and atomic configuration service test-first
+- [x] `T-003` Implement encryption, per-user persistence, deliberate index startup, and atomic configuration service test-first
   - Classification: Behavioral TDD; security-sensitive increment.
   - Traceability: `FR-015`, `FR-016`, `FR-021`, `TC-003`, `TC-004`, `NFR-004`-`NFR-006`; `AC-001`, `AC-003`, `AC-004`, `AC-005`-`AC-007`, `AC-009`, `AC-029`, `AC-033`, `AC-035`, `AC-036`.
   - Depends on: `T-002`.
