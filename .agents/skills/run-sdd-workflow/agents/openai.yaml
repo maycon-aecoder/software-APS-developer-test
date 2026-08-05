@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run SDD Workflow"
+  short_description: "Guide gated SDD and test-first delivery"
+  default_prompt: "Use $run-sdd-workflow to take this change through the next approved SDD gate."
