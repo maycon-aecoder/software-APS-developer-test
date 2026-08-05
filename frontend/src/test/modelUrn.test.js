@@ -1,11 +1,6 @@
-import { existsSync } from 'node:fs';
 import { expect, test } from 'vitest';
 
-const subjectUrl = new URL('../features/aps/domain/modelUrn.js', import.meta.url);
-const subject = existsSync(subjectUrl)
-  ? await import(/* @vite-ignore */ subjectUrl.href)
-  : {};
-const toViewerDocumentId = subject.toViewerDocumentId ?? (() => undefined);
+import { toViewerDocumentId } from '../features/aps/domain/modelUrn';
 
 test.each([
   ['dGVzdC1tb2RlbA'],

@@ -25,6 +25,11 @@ Last updated: 2026-08-05
 | 2026-08-05 | `T-002` | Revised backend Red | `node --test test/domain/modelUrn.test.js` from `backend`. | Revised suite remains Red only because canonical return and rejection behavior are absent, with diagnostic messages identifying each contract. | RED as intended: 21 tests executed and 21 failed; 8 exact canonical-output failures and 13 missing-rejection failures. | Automated |
 | 2026-08-05 | `T-002` | Revised frontend Red | `npm test -- src/test/modelUrn.test.js` from `frontend`. | Exact identifier assertions remain Red and diagnose missing prefix/payload preservation behavior. | RED as intended: 2 tests executed and 2 failed with explicit exact-identifier messages. | Automated |
 | 2026-08-05 | `T-002` | Revised runner control | Run `npm run test:smoke` separately in `backend` and `frontend`. | Review-only edits do not disturb the test environment. | PASS: each package executed 1 smoke test with 0 failures. | Automated |
+| 2026-08-05 | `T-002` | Red approval | User response: `aprovado, prossiga`. | Explicit approval authorizes only the minimum T-002 Green and its review. | APPROVED; T-003 remains unauthorized. | Manual |
+| 2026-08-05 | `T-002` | Minimum Green | Run both focused commands after adding the two domain modules. | Canonicalizer and Viewer identifier satisfy the approved tests. | Backend PASS: 21/21. Frontend remained RED: 2/2 because its Vite-transformed absent-subject shim did not discover the new module; production output was not the cause. | Automated |
+| 2026-08-05 | `T-002` | Test refactor and focused Green | Replace absent-subject shims with direct production imports, then rerun both focused commands. | Tests execute only real production behavior and remain Green. | PASS: backend 21/21; frontend 2/2. | Automated |
+| 2026-08-05 | `T-002` | Regression | Run `npm --prefix backend test`, `npm --prefix frontend test`, and `npm --prefix frontend run build`. | Existing smoke behavior and build remain healthy with all T-002 behavior Green. | PASS: backend 23/23; frontend 3/3 across 2 files; Vite build transformed 92 modules successfully. | Automated |
+| 2026-08-05 | `T-002` | Diff and Git review | Run full/staged diff checks, sensitive-pattern scan, explicit staged name/status/stat/diff, and README identity comparison. | Only T-002 domain, direct-test-import, task-progress, and validation files are included; no malformed diff, secret, unrelated file, or README change exists. | PASS: 6 scoped files reviewed; README object identity remains `ddecc37f72ad8c048ae16301af721945cf1e842f`. | Local integration |
 
 Classify evidence as `Automated`, `Local integration`, `Mocked`, `Manual`, or `Live APS`.
 
@@ -39,11 +44,12 @@ Classify evidence as `Automated`, `Local integration`, `Mocked`, `Manual`, or `L
 - Senior test review: Revised cases trace directly to `FR-002`, `FR-004`, `FR-015`, `AC-031`, and `AC-032`; cover trim-before-prefix behavior, valid remainder-zero/two/three quanta, the URL-safe alphabet, invalid prefix/alphabet/padding/whitespace/remainder-one partitions, and both remainder-two and remainder-three unused-bit rules. The remainder-one and canonical re-encode cases jointly cover invalid decoding, noncanonical representation, and trailing bits without duplicating mathematically equivalent inputs. Tests avoid prescribing an error class/message or decode implementation, use only synthetic payloads, and assert exact public output. The absent-subject shim cannot satisfy any assertion and exists only to keep Red behavioral instead of failing module resolution; real behavior is never mocked. Side-effect nonreach will receive dependent-double regression evidence when crypto/persistence and loading callers exist.
 - Red review revision: Removed duplicate outer-whitespace, uppercase-prefix, and one-character remainder-one scenarios and consolidated three embedded-whitespace inputs into one; the retained mixed-case prefix, embedded space, and longer remainder-one inputs protect the same approved equivalence partitions. Removed the redundant frontend prefix-count assertion because exact string equality already proves one prefix and unchanged payload. Added scenario-specific assertion messages.
 - Senior Red recommendation: Approve Red. The revised suite is deterministic, proportionate, behavior-focused, and cannot become Green through the absent-subject shim; explicit user approval remains pending before production code.
-- User approval: Pending explicit approval of this reviewed Red.
-- Green implementation: Not started.
-- Focused result: RED as intended.
-- Refactor result: Not started.
-- Regression result: Existing backend and frontend smoke tests pass; broader suites are intentionally red until Green.
+- User approval: Approved explicitly on 2026-08-05 with `aprovado, prossiga`.
+- Green implementation: Added one backend-authoritative pure canonicalizer that structurally validates and proves canonical Base64URL through decode/re-encode equality while returning the exact submitted prefix-free payload. Added one frontend helper that prepends exactly one `urn:` to its canonical persisted input.
+- Focused result: GREEN — backend 21/21 and frontend 2/2.
+- Refactor result: GREEN — removed both absent-subject shims in favor of direct imports and simplified canonical validation without changing output.
+- Regression result: GREEN — complete backend 23/23, complete frontend 3/3, and frontend production build pass.
+- Senior implementation review: The implementation is limited to two pure domain modules, introduces no dependency, network, persistence, token, Viewer runtime, or UI behavior, returns the original canonical payload rather than a normalized rewrite, exposes no submitted value in its stable validation error, and can be rolled back by removing only the two modules and reverting their direct test imports. Invalid input cannot reach crypto, persistence, token, or model loading because no such dependency or caller exists in this increment; dependent-double proof remains correctly ordered with the tasks that introduce those boundaries.
 
 ## Acceptance traceability
 
@@ -52,16 +58,18 @@ Classify evidence as `Automated`, `Local integration`, `Mocked`, `Manual`, or `L
 | `AC-028` | One project-local skill plus structural and pressure-scenario validation. | Pass for `T-001` | Later implementation must continue to follow it. |
 | `AC-029` | Focused runners and controlled fake-key, API, model/property, bubble-tree, toolbar, Viewer, and async-race fixtures/doubles. | Pass for `T-001` | Behavioral suites arrive in their traced tasks; live proof remains open. |
 | `AC-030` | English-content and diff review of all feature-owned material introduced by `T-001`. | Pass for `T-001` | Future feature increments require their own review. |
+| `AC-031` | Backend accepted-input table and frontend exact-identifier table, followed by focused and full Green results. | Pass for `T-002` | Persistence and automatic load evidence arrive in their dependent tasks. |
+| `AC-032` | Backend rejected-input table covers every approved syntax partition and both unused-bit boundaries. | Pass for `T-002` | Field-specific UI guidance arrives in `T-004` and `T-006`. |
 
 ## Senior convergence review
 
-- Correctness and regressions: Both runners pass their smoke behavior and the existing frontend build passes. The backend startup command remains unchanged; starting it is intentionally skipped because it requires a long-lived process and MongoDB rather than preparation behavior.
-- Security and secret handling: Fixtures use synthetic values only. Test packages are development-only. Audit findings are recorded above and belong to pre-existing direct development/runtime dependencies; automatic remediation is intentionally skipped because it would exceed `T-001`.
+- Correctness and regressions: Both complete test suites and the existing frontend build pass. T-002 returns exact canonical input, rejects all approved invalid partitions, and constructs the exact Viewer identifier. The backend startup command remains unchanged; starting it is intentionally skipped because T-002 is pure and does not use MongoDB or a long-lived server.
+- Security and secret handling: Fixtures use synthetic values only. T-002 has no credential/token access and its validation error does not echo submitted input. Test packages are development-only. Audit findings are recorded above and belong to pre-existing direct development/runtime dependencies; automatic remediation is intentionally skipped because it would exceed the approved increments.
 - Accessibility and user feedback: The frontend smoke test exercises an accessible button by role and name; feature UX begins in later tasks.
-- Maintainability and complexity: Preparation is limited to one skill, focused runners, and reusable narrow doubles.
-- Operations and recovery: Rollback removes only the `T-001` skill, test scripts, development packages, fixtures, smoke tests, and this validation artifact.
-- Documentation synchronization: Approved Specification and Technical Plan remain unchanged; Tasks mark only `T-001` complete, and this artifact records its evidence.
-- Diff and Git hygiene: Full and responsibility-isolated staged reviews pass; README identity is preserved, and no unrelated or sensitive file is included.
+- Maintainability and complexity: T-002 adds only the two planned pure functions and direct behavior tests; no validator framework, shared cross-package library, or unrelated refactor was introduced.
+- Operations and recovery: T-002 rollback removes only its two domain modules and reverts the direct test imports; it has no stored data or runtime migration.
+- Documentation synchronization: Approved Specification and Technical Plan remain unchanged; Tasks mark `T-001` and `T-002` complete, and this artifact records their evidence.
+- Diff and Git hygiene: Full and staged T-002 reviews pass; README identity is preserved, and no unrelated or sensitive file is included.
 
 ## Limitations and proof gaps
 

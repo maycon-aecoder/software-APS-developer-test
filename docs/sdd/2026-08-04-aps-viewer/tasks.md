@@ -52,7 +52,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
   - Regression: Existing frontend build and baseline backend startup path remain available; run the available package audit and record any relevant result without scope-expanding remediation.
   - Rollback: Remove only the new skill, test scripts/configuration, development packages/lockfile entries, fixtures, smoke tests, and feature validation artifact.
 
-- [ ] `T-002` Implement canonical Model URN behavior test-first
+- [x] `T-002` Implement canonical Model URN behavior test-first
   - Classification: Behavioral TDD; first behavioral Red.
   - Traceability: `FR-002`, `FR-004`, `FR-015`, `TC-003`, `NFR-005`, `NFR-006`; `AC-002`, `AC-005`, `AC-006`, `AC-031`, `AC-032`, `AC-039`.
   - Depends on: `T-001`.

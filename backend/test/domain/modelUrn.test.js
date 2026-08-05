@@ -1,11 +1,7 @@
 const assert = require('node:assert/strict');
-const { existsSync } = require('node:fs');
-const path = require('node:path');
 const test = require('node:test');
 
-const subjectPath = path.resolve(__dirname, '../../src/domain/modelUrn.js');
-const subject = existsSync(subjectPath) ? require(subjectPath) : {};
-const canonicalizeModelUrn = subject.canonicalizeModelUrn ?? (() => undefined);
+const { canonicalizeModelUrn } = require('../../src/domain/modelUrn');
 
 const canonicalPayload = 'dGVzdC1tb2RlbA';
 
