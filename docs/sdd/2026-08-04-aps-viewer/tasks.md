@@ -143,7 +143,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
   - Manual/live: `T-011` must capture sanitized representative direct-root category names/counts, recursive-leaf behavior, native toolbar toggle-on/off state, and visible theming before acceptance.
   - Validation and rollback: Record `automated`/`controlled` limitations; rollback analysis/toolbar listeners and clear all feature-owned theming.
 
-- [ ] `T-009` Implement quantity domain and progressive property orchestration test-first
+- [x] `T-009` Implement quantity domain and progressive property orchestration test-first
   - Classification: Behavioral TDD.
   - Traceability: `FR-005`-`FR-007`, `FR-010`, `FR-011`, `FR-012`, `FR-013`, `TC-005`, `NFR-003`, `NFR-005`, `NFR-006`; `AC-011`-`AC-013`, `AC-017`, `AC-018`, `AC-019`, `AC-020`, `AC-021`, `AC-029`, `AC-034`, `AC-043`, `AC-044`, `AC-048`, `AC-049`.
   - Depends on: `T-008`.
