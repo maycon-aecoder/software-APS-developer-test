@@ -28,9 +28,9 @@ The plan adds no production framework, token cache, migration platform, transact
 | `FR-002`, `FR-004`, `FR-015`, `TC-003` | Backend-authoritative canonical Base64URL validation, prefix-free persistence, exactly one Viewer prefix, and server-derived per-user filters. | Domain/API/controlled-load tests; `AC-001`-`AC-007`, `AC-031`-`AC-035`, `AC-039` |
 | `FR-003`, `FR-017`, `TC-002`, `TC-007` | Backend 2LO with only `viewables:read`; supported Initializer callback obtains token/lifetime from current persisted configuration; normal renewal reuses runtime; credential replacement creates a new callback only after public shutdown/reinitialization; no refresh token or token persistence. | Token/API/provider tests and live renewal/reset evidence; `AC-008`, `AC-009`, `AC-021`, `AC-033`, `AC-038`, `AC-045`, `AC-051`-`AC-054` |
 | `FR-004`, `FR-013`, `FR-019`, `TC-001`, `TC-006` | Exact `7.118.2` assets, at most one runtime/Viewer/model, serialized lifecycle coordinator, URN-only reuse, credential-context `finish()`/`shutdown()`/reinitialize, public deterministic 3D traversal, stale guards, and idempotent cleanup. | Runtime/lifecycle/selector doubles and live branch/tree/load evidence; `AC-004`, `AC-010`, `AC-021`-`AC-023`, `AC-036`-`AC-041`, `AC-045`, `AC-046`, `AC-050`-`AC-056` |
-| `FR-005`-`FR-007`, `TC-005` | Active-model tree and public property results identify unique instance-level `dbId` values without assuming leaves; explicit evidence excludes types, categories, containers, organizational nodes, and nested geometry parts. | Controlled parent/child/type/container/instance fixtures and mandatory Revit evidence; `AC-011`-`AC-013`, `AC-029` |
+| `FR-005`-`FR-007`, `TC-005` | Exact supported direct children of the active-model tree root identify categories; their unique recursive leaf descendants provide category element `dbId` values without reading an element property named `Category`. | Controlled root/category/intermediate/leaf fixtures and mandatory Revit evidence; `AC-011`-`AC-013`, `AC-029` |
 | `FR-008`, `FR-009` | One native toolbar group owns three controls with independent readiness, activation, feature-owned theming, no-match feedback, and isolated failure. | Toolbar/controller doubles, accessibility tests, live review; `AC-014`-`AC-016`, `AC-022`-`AC-024`, `AC-042` |
-| `FR-010`-`FR-012` | Unique instance counts; exact Area parsing; implementable duplicate predicate; exact unit compatibility; explicit complete, partial, unavailable, and failed states. | Table-driven domain tests, property orchestration doubles, real sanitized property shapes; `AC-017`-`AC-020`, `AC-034`, `AC-043`, `AC-044`, `AC-048`, `AC-049` |
+| `FR-010`-`FR-012` | Unique matched-leaf counts; exact Area parsing; implementable duplicate predicate; exact unit compatibility; explicit complete, partial, unavailable, and failed states. | Table-driven domain tests, property orchestration doubles, real sanitized property shapes; `AC-017`-`AC-020`, `AC-034`, `AC-043`, `AC-044`, `AC-048`, `AC-049` |
 | `FR-015`, `FR-016`, `FR-021`, `TC-004`, `NFR-004` | Unique per-user record, strict environment-key parsing, AES-256-GCM with user-bound AAD, safe projections, validation/encryption before one complete atomic update, and sanitized failures. | Crypto/service/router/index-startup/failure-injection tests; `AC-001`, `AC-003`-`AC-009`, `AC-033`, `AC-035`, `AC-036` |
 | `FR-018` | Stable failure codes become accessible, activity-specific English guidance; server diagnostics retain safe operation and cause context without sensitive data. | API and UI state tests plus manual review; `AC-016`, `AC-024`, `AC-035`-`AC-042`, `AC-046` |
 | `FR-020` | Gate 5 creates exactly one concise local `aps-viewer-assessment` skill that references repository guidance and approved artifacts. | Preparation verification; `AC-028`, `AC-030` |
@@ -51,7 +51,7 @@ All `FR-001`-`FR-022`, `TC-001`-`TC-007`, `NFR-001`-`NFR-008`, and `AC-001`-`AC-
 8. For `credential-replacement`, advance configuration/authentication/runtime/model/analysis generations, invalidate the prior callback and all prior work, serialize behind any lifecycle operation, call `finish()` on the owned Viewer, call public `Autodesk.Viewing.shutdown()`, clear Viewer/runtime references and the prior initialization promise, initialize a new runtime with `getAccessToken`, create one Viewer, and load the persisted URN only after initialization succeeds. An initial first save follows this branch but skips finish/shutdown for resources that do not exist.
 9. The backend token operation reads and decrypts only the current authenticated user's persisted configuration. Each Initializer callback and token request captures user, workspace registration, authentication generation, and runtime generation. A mismatch discards success/failure without delivery or obsolete notification. With no active context, the provider stops safely without a loop or invalid callback.
 10. The model controller loads exactly `urn:${modelUrn}` and chooses one supported 3D geometry node through deterministic public traversal. One model is active at most.
-11. After geometry is usable, the analysis adapter discovers candidate nodes from the active model's public instance-tree and property APIs without leaf assumptions. Pure resolvers publish categories independently, counts from unique instance `dbId` sets, then Area results.
+11. After geometry is usable, the analysis adapter matches exact supported category names among direct root children and collects their recursive leaves through the public instance tree. Pure resolvers publish categories independently, counts from unique leaf `dbId` sets, then Area property results.
 12. Every asynchronous boundary validates its captured user, workspace, save, authentication, runtime, model, and analysis context. Obsolete callbacks, promises, successes, failures, and models publish nothing; an obsolete loaded model is disposed by the owning current lifecycle when safe.
 13. If reset/reinitialization partially succeeds then fails, the coordinator finishes any created Viewer, shuts down only the partially initialized current generation when required, clears its references/promise, leaves Viewer empty/load-failed, and permits one serialized retry against the persisted current credentials. The old model is never restored.
 14. The feature-local `validation.md` begins with the first executable Gate 5 increment and receives append-only evidence for every increment rather than reconstructed final claims.
@@ -140,25 +140,26 @@ Official Autodesk evidence supports the selected public calls: the [Viewer tutor
 
 ## Model analysis contracts
 
-### Instance and Category adapter
+### Root category and leaf-element adapter
 
-The approved unit is a unique instance-level `dbId` in the active model, not a terminal tree leaf. The adapter uses supported instance-tree traversal and `model.getBulkProperties2` in bounded batches to collect model-local structure and properties. The exact candidate-node algorithm remains an implementation decision inside the adapter because Revit derivatives vary, but its observable contract is fixed:
+The adapter uses the supported public instance tree. It enumerates every direct child of the active model root, recognizes only the eight approved trimmed case-insensitive exact aliases, and recursively collects the leaves beneath each recognized category. It does not read an element property named `Category`.
 
-- include an instance with an approved exact Category even when it has children;
-- do not promote a leaf to an instance merely because it is terminal;
-- exclude records proven to be types, category nodes, containers, or purely organizational nodes by their supported tree/property evidence;
-- exclude nested geometry/part children that do not independently represent the building instance;
-- return each qualifying active-model `dbId` once and never carry a `dbId` across models;
-- resolve only the eight approved trimmed, case-insensitive exact Category aliases, with no fuzzy, substring, translated, or inferred match;
-- surface insufficient classification evidence conservatively as analysis failure/unavailable rather than guessed counts.
+- category candidates exist only at the direct-root-child level;
+- an optional trailing structural count such as ` (11)` may be removed before exact alias resolution;
+- substring, fuzzy, translated, similar-label, and deeper-node promotion remain prohibited;
+- root category and intermediate family/type/container nodes are not returned;
+- each recursive leaf `dbId` is returned once for its exact category and never carried across models;
+- repeated child callbacks are deduplicated and malformed/cyclic tree data fails safely.
 
-Controlled fixtures cover relevant parent, child, type, category, container, organizational, nested-part, leaf-instance, and non-leaf-instance records. Mandatory live evidence records sanitized tree/property facts for representative Revit instances before the adapter is accepted.
+Controlled fixtures cover exact and similar root labels, intermediate hierarchy, nested leaves, duplicate callbacks, sibling enumeration, absent APIs, and malformed roots/cycles. Mandatory live evidence records the sanitized direct-root category names/counts and rendered theming behavior before acceptance.
 
 ### Native toolbar and theming
 
 One feature-owned native toolbar group contains labeled Furniture, Walls, and Doors controls. Readiness and failure are independent per category. The controller maintains an active-category map and the union of feature-owned themed `dbId` values for the active model.
 
 Apply color with supported public Viewer/model APIs and the active model argument. To turn one category off, set feature-owned affected element colors to `null` through supported per-`dbId` behavior, then deterministically rebuild and reapply all remaining active feature categories from the map. This defensive rebuild preserves overlaps. Never clear unrelated Viewer theming, inspect private fragment maps, call `NOP_VIEWER`, or invoke undocumented invalidation internals. Replacement and teardown clear every feature-owned themed `dbId` and discard the map.
+
+The second activation returns the control to native inactive state and removes that category's color. Pointer activation releases pointer focus after the toggle so inactive does not look pressed; keyboard activation preserves focus for accessibility.
 
 ### Property and Area adapter
 
@@ -215,7 +216,7 @@ Focused automation covers:
 - current persisted-credential token exchange, exact scope/endpoint/lifetime/timeout, supported Initializer callback, normal renewal without shutdown, stale token suppression, and no persistence/logging;
 - backend save classification, URN-only reuse, non-empty-secret reset, changed-Client-ID reset, failed-save non-reset, older save after a newer context, logout/user change during read/save, and prior-runtime token/callback suppression;
 - serialized at-most-one runtime/Viewer ownership, exact `finish()` then public `shutdown()` order, generation-scoped initialization promises, partial-failure cleanup, retry-after-reset failure, StrictMode/repeated mount, mixed nested 2D/3D/default/no-default/no-3D selection, stale model disposal, and idempotent teardown;
-- non-leaf and leaf instance outcomes, types/containers/categories/nested parts, exact aliases, independent/overlapping theming, counts, Area parsing, duplicate predicate, units, and report states;
+- direct-root category and recursive-leaf outcomes, similar labels, duplicate callbacks, exact aliases, independent/overlapping theming, counts, Area parsing, duplicate predicate, units, and report states;
 - accessible settings/workspace status, password semantics, keyboard/retry behavior, action-specific messages, and shell preservation.
 
 Viewer doubles model only consumed public methods and returned shapes. They do not claim WebGL, Autodesk rendering, real toolbar integration, real derivative access, or real Revit property behavior.
@@ -228,7 +229,7 @@ Manual/live validation must include:
 
 - actual `7.118.2` assets, ordinary callback renewal without reinitialization, URN-only replacement without reinitialization, credential replacement through public `finish()`/`shutdown()`/new Initializer, new credentials loading the persisted model, and no obsolete prior-runtime publication;
 - real document bubble tree showing default/fallback selection under the public DFS rule and proving no 2D fallback;
-- sanitized representative Revit parent, child, type, category/container, organizational, nested-part, leaf-instance, and non-leaf-instance structures/properties;
+- sanitized representative Revit root/category/intermediate/leaf structure, category counts, and leaf property shapes;
 - sanitized real Area property shapes containing only the selected public fields before duplicate proof is claimed; ambiguous metadata stays explicitly unsupported;
 - native toolbar ownership, keyboard operation, independent/overlapping theming rebuild, replacement/teardown cleanup, and report outcomes;
 - current Chrome/Edge layout, WebGL, shell/navigation/logout regression, network/browser storage, MongoDB encrypted envelope, canonical URN, and absence of token persistence.
@@ -261,7 +262,7 @@ No ADR is required. The lifecycle amendment is feature-local, explicitly owned b
 | `PLAN-GAP-004` | Resolved | How is a newly persisted credential context guaranteed without an undocumented token setter? | Same-runtime model loading could reuse an old delivered token. | Classify saves by credential intent. URN-only reuses unchanged authentication context. Changed Client ID or any non-empty secret persists first, invalidates prior generations, serially calls public `viewer.finish()` and `Autodesk.Viewing.shutdown()`, clears references/promises, and creates a new Initializer callback/runtime/Viewer that reads only new persisted credentials. No proxy or private/undocumented API is used. |
 | `PLAN-GAP-005` | Resolved | Is a transaction or migration framework required? | Partial records are unacceptable; extra infrastructure is disproportionate. | One complete per-user atomic update, deliberate awaited unique index, safe failure mapping, and no backfill satisfy the requirement. |
 | `PLAN-GAP-006` | Resolved | Is an ADR required? | Either missing rationale or excess documentation is a risk. | No; decisions remain assessment-local. A product-contract change returns to Gate 2. |
-| `PLAN-GAP-007` | Resolved with mandatory live proof | How are instance records distinguished without a leaf assumption? | Real non-leaf instances may be lost or nested parts overcounted. | Conservative public tree/property adapter with fixed observable outcomes, controlled mixed-node fixtures, and mandatory sanitized Revit evidence. Exact internal candidate algorithm is settled during adapter implementation without changing outcomes. |
+| `PLAN-GAP-007` | Resolved and amended by live evidence | How are category elements identified in the representative Revit tree? | Property-based classification failed because the derivative exposes no element `Category` property. | Match exact supported direct-root category nodes and use their unique recursive leaves. Controlled fixtures and live theming/count evidence protect the public-tree behavior. |
 
 No material architectural, APS, security, lifecycle, migration, rollback, or test-design gap remains open. Real APS credentials and a representative translated Revit model are evidence dependencies, not design gaps, and unavailable checks remain explicitly open.
 
@@ -271,7 +272,7 @@ No material architectural, APS, security, lifecycle, migration, rollback, or tes
 - APS correctness: Viewer assets are pinned to `7.118.2`; SVF/SVF2 initializer values, public callback, `finish()`, global `shutdown()`, one-prefix URN, public DFS 3D selection, no 2D fallback, at-most-one runtime/Viewer/model, public property APIs, and live proof are explicit. No setter, retained callback, endpoint mutation, `NOP_VIEWER`, private refresh, or proxy is planned.
 - Security: Server-derived ownership, strict canonical 32-byte key parsing, AES-256-GCM with user AAD, explicit projections, complete atomic replacement, awaited unique index, least scope, timeout, no token persistence, and safe diagnostics remain covered. Credential replacement cannot reuse the old authentication generation.
 - Concurrency and lifecycle: Save intent determines generations: URN-only reuses runtime/Viewer; changed Client ID or any non-empty secret resets authentication/runtime after persistence; failure resets nothing. The lifecycle queue and generation-scoped promises cover stale callbacks, partial init, retry, logout, StrictMode, and unmount with no overlap or duplicate shutdown.
-- Model correctness: Instance identity is property/structure evidenced, model-local, and never leaf-derived by default. Public deterministic viewable traversal, per-`dbId` theming rebuild, and executable Area duplicate identity remove prior ambiguity.
+- Model correctness: Exact supported direct-root categories and their recursive leaves provide model-local category element identity without an element `Category` property. Public deterministic viewable traversal, per-`dbId` theming rebuild, and executable Area duplicate identity remove prior ambiguity.
 - Complexity: No production dependency, general framework, migration system, transaction, precision package, token cache, or exhaustive SDK simulator is planned. Twelve reversible increments are proportionate to the assessment.
 - Testability: Preparation uses smoke checks, behavior uses real Red tests, controlled Viewer boundaries remain narrow, and real rendering/property claims remain live. Continuous `validation.md` preserves honest evidence and rollback history.
 - Rollback and delivery: Schema and wiring are additive; README uses the approved Git bytes; Git stays separately authorized. No destructive rollback or secret-bearing artifact is planned.
@@ -282,6 +283,7 @@ No material architectural, APS, security, lifecycle, migration, rollback, or tes
 - [x] Security, concurrency, recovery, rollback, and validation lifecycle are explicit.
 - [x] No private Autodesk API is planned.
 - [x] `PLAN-GAP-004` is resolved by the amended public lifecycle and introduces no derivative proxy or undocumented token mechanism.
+- [x] The live-model category amendment is synchronized with the approved Specification and uses only the public instance tree.
 - [x] Project owner approved the Technical Plan and implementation/test sequence on 2026-08-05. Tasks already exist; Git actions still require separate authorization.
 
 Technical Plan is `Approved`.
