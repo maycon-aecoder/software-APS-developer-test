@@ -52,6 +52,12 @@ function copyPublicProperty(property) {
   return safe;
 }
 
+function copyPublicName(name) {
+  if (typeof name !== 'string') return null;
+  const normalized = name.trim();
+  return normalized || null;
+}
+
 function adaptBatch(results, requestedIds) {
   if (!Array.isArray(results)) throw createFailure();
   const requested = new Set(requestedIds);
@@ -66,6 +72,7 @@ function adaptBatch(results, requestedIds) {
     seen.add(result.dbId);
     return {
       dbId: result.dbId,
+      name: copyPublicName(result.name),
       properties: result.properties.map(copyPublicProperty),
     };
   });

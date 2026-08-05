@@ -1,4 +1,10 @@
 const DECIMAL_VALUE = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+const AUTODESK_AREA_UNIT_LABELS = Object.freeze({
+  'autodesk.unit.unit:squareFeet-1.0.1': 'ft\u00B2',
+  'autodesk.unit.unit:squareInches-1.0.1': 'in\u00B2',
+  'autodesk.unit.unit:squareMeters-1.0.1': 'm\u00B2',
+  'autodesk.unit.unit:squareMillimeters-1.0.1': 'mm\u00B2',
+});
 
 function invalidArea() {
   return { valid: false };
@@ -12,6 +18,10 @@ function normalizeUnit(value) {
   if (value == null) return { valid: true, value: null };
   if (typeof value !== 'string') return { valid: false };
   const normalized = value.trim();
+  if (normalized.startsWith('autodesk.unit.unit:')) {
+    const label = AUTODESK_AREA_UNIT_LABELS[normalized];
+    return label ? { valid: true, value: label } : { valid: false };
+  }
   return { valid: true, value: normalized || null };
 }
 
@@ -78,6 +88,37 @@ export function parseAreaValue(value) {
 
   if (!Number.isFinite(parsed) || parsed < 0) return invalidArea();
   return { valid: true, value: normalizeZero(parsed) };
+}
+
+export function createAreaElementRows(category, dbIds, results) {
+  countUniqueInstances(dbIds);
+  if (!['Doors', 'Windows'].includes(category) || !Array.isArray(results)) {
+    throw new TypeError('Supported category Area results are required.');
+  }
+
+  const resultsById = new Map();
+  for (const result of results) {
+    if (!Number.isInteger(result?.dbId) || !Array.isArray(result.properties)) {
+      throw new TypeError('Valid Area result records are required.');
+    }
+    if (resultsById.has(result.dbId)) throw new TypeError('Duplicate Area results are ambiguous.');
+    resultsById.set(result.dbId, result);
+  }
+
+  const singular = category === 'Doors' ? 'Door' : 'Window';
+  return [...new Set(dbIds)].map((dbId, index) => {
+    const result = resultsById.get(dbId);
+    const name = typeof result?.name === 'string' && result.name.trim()
+      ? result.name.trim()
+      : `${singular} element ${index + 1}`;
+    const contribution = result ? resolveContribution(result.properties) : null;
+    return {
+      area: contribution
+        ? { status: 'available', unit: contribution.unit, value: contribution.value }
+        : { status: 'unavailable' },
+      name,
+    };
+  });
 }
 
 export function createAreaReport(dbIds, results) {

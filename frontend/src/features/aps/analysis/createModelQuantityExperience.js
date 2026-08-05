@@ -1,5 +1,9 @@
 import { readModelAreaProperties } from './modelAreaAdapter';
-import { countUniqueInstances, createAreaReport } from './quantityDomain';
+import {
+  countUniqueInstances,
+  createAreaElementRows,
+  createAreaReport,
+} from './quantityDomain';
 
 const QUANTITY_CATEGORIES = new Set(['Doors', 'Windows']);
 
@@ -20,6 +24,7 @@ function failedArea() {
 }
 
 export function createModelQuantityExperience({
+  createAreaDetails: buildAreaDetails = createAreaElementRows,
   createAreaReport: buildAreaReport = createAreaReport,
   model,
   onDiagnostic = () => {},
@@ -82,7 +87,7 @@ export function createModelQuantityExperience({
     });
 
     if (count === 0) {
-      publish({ area: unavailableArea(), category, count, status: 'ready' });
+      publish({ area: unavailableArea(), category, count, elements: [], status: 'ready' });
       work.promise = Promise.resolve();
       return work.promise;
     }
@@ -94,22 +99,24 @@ export function createModelQuantityExperience({
       } catch {
         if (!isCurrent(category, work)) return;
         onDiagnostic({ category, code: 'APS_AREA_ANALYSIS_FAILED', stage: 'read' });
-        publish({ area: failedArea(), category, count, status: 'ready' });
+        publish({ area: failedArea(), category, count, elements: [], status: 'ready' });
         return;
       }
       if (!isCurrent(category, work)) return;
 
       let area;
+      let elements;
       try {
         area = buildAreaReport(dbIds, properties);
+        elements = buildAreaDetails(category, dbIds, properties);
       } catch {
         if (!isCurrent(category, work)) return;
         onDiagnostic({ category, code: 'APS_AREA_ANALYSIS_FAILED', stage: 'report' });
-        publish({ area: failedArea(), category, count, status: 'ready' });
+        publish({ area: failedArea(), category, count, elements: [], status: 'ready' });
         return;
       }
       if (!isCurrent(category, work)) return;
-      publish({ area, category, count, status: 'ready' });
+      publish({ area, category, count, elements, status: 'ready' });
     })();
     return work.promise;
   }
