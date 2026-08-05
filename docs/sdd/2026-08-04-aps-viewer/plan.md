@@ -35,7 +35,7 @@ The plan adds no production framework, token cache, migration platform, transact
 | `FR-015`, `FR-016`, `FR-021`, `TC-004`, `NFR-004` | Unique per-user record, strict environment-key parsing, AES-256-GCM with user-bound AAD, safe projections, validation/encryption before one complete atomic update, and sanitized failures. | Crypto/service/router/index-startup/failure-injection tests; `AC-001`, `AC-003`-`AC-009`, `AC-033`, `AC-035`, `AC-036` |
 | `FR-018` | Stable failure codes become accessible, activity-specific English guidance; server diagnostics retain safe operation and cause context without sensitive data. | API and UI state tests plus manual review; `AC-016`, `AC-024`, `AC-035`-`AC-042`, `AC-046` |
 | `FR-020` | Gate 5 creates exactly one concise local `aps-viewer-assessment` skill that references repository guidance and approved artifacts. | Preparation verification; `AC-028`, `AC-030` |
-| `FR-014`, `FR-022`, `NFR-008` | Final delivery verifies root README against bytes from the approved Git baseline, appends one English section only after explicit authorization, and performs Git actions only when separately authorized. | Byte-prefix check, sanitized evidence, diff/status and branch review; `AC-027`, `AC-030`, `AC-047` |
+| `FR-014`, `FR-022`, `NFR-008` | Final delivery adds one complete English `ASSESSMENT.md`, appends only its link to the preserved README, and performs Git actions only when separately authorized. | Content/link checks, sanitized evidence, diff/status and branch review; `AC-027`, `AC-030`, `AC-047` |
 | `NFR-005`-`NFR-007` | Separate feature security, persistence, token, Viewer lifecycle, model analysis, pure domain, and presentation responsibilities; use focused doubles only. | Architecture/diff review and focused suites; `AC-026`, `AC-029` |
 
 All `FR-001`-`FR-023`, `TC-001`-`TC-007`, `NFR-001`-`NFR-008`, and `AC-001`-`AC-060` are covered by the grouped rows above and the task evidence map. No design gap blocks Gate 3 review.
@@ -257,7 +257,7 @@ Lifecycle rollout enables no server-side migration or feature flag. The frontend
 
 The MongoDB collection is additive and has no backfill. Rollback removes APS route/UI wiring and stops using the collection; encrypted documents remain inert and are not deleted without separate authorization. Changing/removing the key while data remains intentionally makes decryption fail closed. Dependencies can be removed with only their reviewed development lockfile entries.
 
-The README baseline is the exact byte sequence from the current approved Git object, obtained read-only with a command such as `git show HEAD:README.md`, not a later working-tree snapshot. Baseline identity is recorded during preparation. Before any authorized final append, compare working README bytes to that baseline and abort if any byte differs. Append to the verified baseline while preserving its line endings and final-byte behavior; verify the resulting file begins with the exact baseline bytes. These checks authorize no Git mutation.
+The project owner selected the assessment's explicitly permitted separate-document option. Root `ASSESSMENT.md` is therefore the single complete delivery guide. The README receives only a separated final link after its existing content; diff review must show no edit to an existing tracked line. The guide and link are added only after explicit authorization naming the README. These checks authorize no unrelated Git mutation.
 
 No feature flag, migration framework, transaction, background job, production deployment platform, or automatic rollback infrastructure is warranted.
 
@@ -289,7 +289,7 @@ No material architectural, APS, security, lifecycle, migration, rollback, or tes
 - Model correctness: Exact supported direct-root categories and their recursive leaves provide model-local category element identity without an element `Category` property. Public deterministic viewable traversal, per-`dbId` theming rebuild, and executable Area duplicate identity remove prior ambiguity.
 - Complexity: No production dependency, general framework, migration system, transaction, precision package, token cache, React portal, or exhaustive SDK simulator is planned. One narrow amendment to the existing quantity/workspace increments remains proportionate to the assessment.
 - Testability: Preparation uses smoke checks, behavior uses real Red tests, controlled Viewer boundaries remain narrow, and real rendering/property claims remain live. Continuous `validation.md` preserves honest evidence and rollback history.
-- Rollback and delivery: Schema and wiring are additive; README uses the approved Git bytes; Git stays separately authorized. No destructive rollback or secret-bearing artifact is planned.
+- Rollback and delivery: Schema and wiring are additive; documentation rollback removes only `ASSESSMENT.md` and its final README link; Git stays separately authorized. No destructive rollback or secret-bearing artifact is planned.
 
 ## Gate decision
 

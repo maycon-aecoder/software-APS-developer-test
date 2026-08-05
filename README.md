@@ -305,3 +305,9 @@ Extend the APS Viewer toolbar with custom buttons that change the color of speci
 This assessment is designed to be completed in approximately **4–6 hours**. You are not expected to build a production-grade solution — focus on correctness, clarity, and good structure.
 
 Good luck!
+
+---
+
+## Assessment implementation
+
+See [ASSESSMENT.md](./ASSESSMENT.md) for feature configuration, usage, architecture and security decisions, development process, validation evidence, troubleshooting, and known limitations.

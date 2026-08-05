@@ -183,27 +183,27 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
   - Manual/live: Confirm the separate native command, hidden artificial root, initially collapsed aligned summaries, two-decimal totals, indented expansion rows, category isolate/fit, `X` close isolation cleanup with theming retained, command state, model usability, layout, and resize affordance. Do not report controlled tree doubles as native live proof or a blocked automated drag as completed manual resize evidence.
   - Validation and rollback: Record Red/Green/review/live evidence. Rollback removes the extension/detail amendment and restores the prior T-010 page report without touching analysis semantics, secure configuration, token flow, or color controls.
 
-- [ ] `T-011` Perform real APS/manual validation and append final documentation only when explicitly authorized
+- [x] `T-011` Perform real APS/manual validation and append final documentation only when explicitly authorized
   - Classification: Validation and documentation; not a substitute for behavioral TDD.
   - Traceability: `FR-001`, `FR-003`-`FR-014`, `FR-017`-`FR-019`, `TC-001`, `TC-002`, `TC-005`-`TC-007`, `NFR-001`-`NFR-004`, `NFR-006`, `NFR-008`; `AC-008`-`AC-030`, `AC-037`-`AC-056`.
-  - Depends on: `T-010A`, evaluator-authorized credentials and representative translated Revit source-design URN for live checks, and separate explicit authorization naming root `README.md` before any README write.
-  - Initial evidence: Keep every live-only item `Not run` until executed. Before README work, derive authoritative baseline bytes directly from current approved Git, compare working README byte-for-byte, and abort if any pre-existing byte differs. Do not accept a working-tree snapshot as the original baseline.
+  - Depends on: `T-010A`, evaluator-authorized credentials and representative translated Revit source-design URN for live checks, and separate explicit authorization naming root `README.md` before any README write. Fulfilled by project-owner authorization on 2026-08-05.
+  - Initial evidence: Keep every live-only item `Not run` until executed. Before README work, verify the file matches the approved Git content and abort if an existing tracked line differs. Final diff must contain only the approved separated link after the original content.
   - Live/manual checklist:
     - exact Viewer assets/runtime; ordinary callback renewal without reinitialization; URN-only replacement without reinitialization; changed Client ID and non-empty-secret replacement through public `finish()` then `shutdown()` then new Initializer; new persisted credentials loading the configured model; no overlapping runtime/Viewer; no obsolete prior-runtime callback/token/load/model/error publication; reset-failure retry/reload; derivative access; public-tree default/fallback 3D selection; and no 2D fallback;
     - sanitized representative Revit direct-root category names/counts, recursive leaf facts, and absence of element `Category` property dependency;
     - sanitized real public Area shapes and executable duplicate predicate, exact aliases, counts/states, native controls, independent/overlapping theming, replacement/retry/failure/cleanup;
     - Chrome/Edge layout, keyboard/focus/messages, shell/navigation/logout, MongoDB unique index/encrypted envelope/canonical URN, browser storage/network, and no token persistence.
   - Defect rule: A live defect returns to the owning task's useful Red, approval, minimum Green, focused regression, and affected live rerun. Do not silently change requirements in this task.
-  - Documentation Green: After explicit README authorization and successful baseline comparison, append exactly one separated English assessment section to the verified baseline. Preserve original line endings and final-byte behavior; cover configuration, environment key, dependencies, run/validation, Viewer version, assumptions, per-user behavior, limitations, and troubleshooting. Verify the new file begins with the exact baseline byte sequence. Update final sanitized `validation.md` matrix without relabeling evidence.
-  - Refactor boundary: Edit only appended README bytes and feature-local validation status; no correction, translation, reformatting, or reordering of base README; no separate redundant assessment document.
+  - Documentation Green: After explicit authorization, create one root English `ASSESSMENT.md` covering configuration, environment key, dependencies, usage, architecture/security decisions, development process, run/validation, Viewer version, assumptions, per-user behavior, limitations, and troubleshooting. Append only one separated link to it after existing README content. Update final sanitized `validation.md` matrix without relabeling evidence.
+  - Refactor boundary: Add only the assessment guide, appended README link, and owning SDD/validation updates; do not correct, translate, reformat, reorder, or duplicate existing README content.
   - Regression: Re-run proportionate focused suites/build/scans and byte-prefix/one-section checks; verify no real secret/key/token/URN/raw APS/model data in docs.
-  - Rollback: Remove only appended bytes and final validation-status updates, restoring the exact Git-baseline README bytes. No Git mutation is authorized by baseline checks or documentation work.
+  - Rollback: Remove only `ASSESSMENT.md`, the appended README link, and final validation-status updates. No Git mutation is authorized by documentation checks alone.
 
 - [ ] `T-012` Prepare and perform Git delivery only after explicit authorization
   - Classification: Delivery; no behavioral Red-Green-Refactor claim.
   - Traceability: `FR-014`, `FR-022`, `NFR-004`, `NFR-008`; `AC-027`, `AC-030`, `AC-047`.
   - Depends on: `T-011`, final review, and explicit user authorization for each requested branch/stage/commit/push/fork action.
-  - Read-only preparation: Review status, tracked/untracked/ignored files, full and staged diffs as applicable, branch state, English small-commit plan, README byte preservation, validation status, and sensitive/generated/dependency-directory exclusions. Read-only inspection is not Git delivery.
+  - Read-only preparation: Review status, tracked/untracked/ignored files, full and staged diffs as applicable, branch state, English small-commit plan, README existing-content preservation, assessment-guide coverage, validation status, and sensitive/generated/dependency-directory exclusions. Read-only inspection is not Git delivery.
   - Delivery Green: Perform only the specifically authorized Git actions, in small English responsibility-based commits, and provide a working branch or fork with all intended files tracked.
   - Regression: Re-run or reuse still-current final evidence proportionate to any delivery-only change; verify intended file set, commit order/messages, branch usability, README prefix, and absence of secrets, environment files, local database data, dependency directories, and runtime artifacts.
   - Rollback: Use only separately authorized, non-destructive Git actions; never reset, rewrite, delete user data, or mutate remote state without explicit scope.
@@ -235,7 +235,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
 - TDD order: `T-001` is preparation. `T-002` begins behavioral TDD. Each behavioral Red uses a functioning runner and missing behavior as its expected failure, includes approval before Green, and ends with focused regression and rollback evidence.
 - Lifecycle correctness: URN-only success reuses runtime/Viewer and advances model/analysis context; changed Client ID or any non-empty secret resets authentication/runtime only after persistence; failed save resets nothing. Lifecycle work is serialized with at-most-one ownership, public `finish()`/`shutdown()`/Initializer ordering, generation-scoped stale suppression, partial-failure retry, and idempotent logout/StrictMode/unmount. No undocumented token setter, proxy, private Autodesk API, element `Category` property dependency, deeper-node promotion, global theming clear, or arbitrary Area record/precision decision remains.
 - Evidence integrity: `validation.md` begins in `T-001`, records every increment, labels evidence accurately, keeps unavailable live checks open, and protects sensitive data. Convergence adds current status without rewriting history.
-- Delivery boundaries: README uses bytes from the approved Git baseline and aborts on any earlier difference. README and every Git action still require their own explicit authorization. No Gate 5 action is performed by this task document.
+- Delivery boundaries: README keeps all approved existing content and adds only the assessment-guide link. README and every Git action require their own explicit authorization. This task document alone authorizes no implementation or Git mutation.
 - Proportionality: Twelve reversible increments preserve security, deterministic domain behavior, stale-result/lifecycle coverage, accessibility, live APS proof, and professional delivery without production-platform infrastructure or exhaustive Viewer/WebGL automation.
 
 ## Senior TDD review
@@ -251,11 +251,11 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
 - [x] Tasks are ordered, reversible, traceable, and proportionate.
 - [x] Preparation is separated from behavioral TDD.
 - [x] Every acceptance criterion has an evidence path.
-- [x] No Gate 5 implementation, test, dependency, skill, README, or Git action has started.
+- [x] Gate 5 implementation, tests, one skill, authorized README reference, documentation, and authorized local commits are traceable to approved tasks; no unauthorized remote Git action occurred.
 - [x] `PLAN-GAP-004` is resolved in the synchronized Specification and Technical Plan.
 - [x] The live-model category correction synchronizes T-008/T-009 with exact direct-root categories and recursive leaves.
 - [x] The project-owner-approved native quantity-panel amendment is isolated in T-010A with explicit Red, Green, rollback, and live evidence.
 - [x] Gate 3 is approved.
-- [x] Project owner approved Tasks and authorized preparation plus the first behavioral Red on 2026-08-05. Green production code still requires explicit approval after reviewed Red evidence; README and Git actions require their own authorization.
+- [x] Project owner approved Tasks, reviewed Reds, production continuation, organized local commits, `ASSESSMENT.md`, and the final README reference on 2026-08-05. Push, fork, and pull-request actions remain unauthorized.
 
 Tasks are `Approved`.
