@@ -35,9 +35,10 @@ Browser -> APS Viewer SDK using short-lived viewer access
 - `src/app.js` composes middleware and routes independently from `server.js`, which is a useful test seam.
 - Mongoose owns MongoDB persistence.
 - Authentication routes register and sign in users, returning `{ token, user }`.
-- The JWT middleware exists but is not currently mounted on a protected API route.
+- The existing JWT middleware protects the APS configuration API under `/api/aps` without changing authentication response contracts.
 - `ApsConfiguration` is an additive one-record-per-user persistence boundary with a deliberately initialized unique user index.
 - The APS configuration service canonicalizes Model URNs, enforces Client Secret replacement/retention rules, and performs one complete atomic upsert.
+- `GET /api/aps/configuration` distinguishes no saved record from read failure; `PUT /api/aps/configuration` returns only safe settings and an authoritative save classification.
 - Client Secrets are protected with native AES-256-GCM, a dedicated canonical Base64 environment key, and user-bound additional authenticated data. Safe projections and JSON serialization exclude the encrypted envelope.
 - Server startup awaits both the existing MongoDB connection and `ApsConfiguration.init()` before listening.
 

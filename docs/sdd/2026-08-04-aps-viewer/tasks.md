@@ -78,7 +78,7 @@ Security-sensitive persistence precedes token and Viewer behavior. Model lifecyc
   - Manual/live: Later MongoDB inspection confirms unique index and encrypted envelope only.
   - Validation and rollback: Record `automated` evidence and the additive-schema/index limitation; rollback route/startup/model usage without deleting stored data.
 
-- [ ] `T-004` Expose authenticated configuration read/save HTTP contracts test-first
+- [x] `T-004` Expose authenticated configuration read/save HTTP contracts test-first
   - Classification: Behavioral TDD.
   - Traceability: `FR-015`, `FR-016`, `FR-018`, `FR-021`, `TC-003`, `NFR-004`-`NFR-006`; `AC-001`-`AC-007`, `AC-024`, `AC-029`, `AC-030`, `AC-035`, `AC-036`.
   - Depends on: `T-003`.
