@@ -1,14 +1,7 @@
 const assert = require('node:assert/strict');
-const { existsSync } = require('node:fs');
-const path = require('node:path');
 const test = require('node:test');
 
-const subjectPath = path.join(__dirname, '../../src/startServer.js');
-const subject = existsSync(subjectPath)
-  ? require(subjectPath)
-  : { startServer: async () => undefined };
-
-const { startServer } = subject;
+const { startServer } = require('../../src/startServer');
 
 function createStartupDouble() {
   const calls = [];

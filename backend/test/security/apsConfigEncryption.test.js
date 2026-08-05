@@ -1,28 +1,10 @@
 const assert = require('node:assert/strict');
-const { existsSync } = require('node:fs');
-const path = require('node:path');
 const test = require('node:test');
-
-const subjectPath = path.join(__dirname, '../../src/security/apsConfigEncryption.js');
-const subject = existsSync(subjectPath)
-  ? require(subjectPath)
-  : {
-      createApsConfigEncryption: () => ({
-        decryptClientSecret: () => undefined,
-        encryptClientSecret: () => ({
-          version: 0,
-          ciphertext: '',
-          iv: '',
-          authTag: '',
-        }),
-      }),
-      parseApsConfigEncryptionKey: () => undefined,
-    };
 
 const {
   createApsConfigEncryption,
   parseApsConfigEncryptionKey,
-} = subject;
+} = require('../../src/security/apsConfigEncryption');
 const { createEncryptionKeyFixture } = require('../fixtures/apsFixtures');
 
 const userId = '66b28e44b8967d23c43e9371';
@@ -63,7 +45,13 @@ for (const [label, value] of invalidKeyCases) {
   test(`rejects an encryption key with ${label}`, () => {
     assert.throws(
       () => parseApsConfigEncryptionKey(value),
-      (error) => error.code === 'APS_CONFIG_ENCRYPTION_KEY_INVALID',
+      (error) => {
+        assert.equal(error.code, 'APS_CONFIG_ENCRYPTION_KEY_INVALID');
+        if (typeof value === 'string' && value.length > 0) {
+          assert.equal(error.message.includes(value), false);
+        }
+        return true;
+      },
       `Expected ${label} to be rejected with the stable key-validation code`,
     );
   });
@@ -79,6 +67,7 @@ test('encrypts the same secret into randomized versioned AES-GCM envelopes', () 
   assert.equal(second.version, 1);
   assert.notEqual(first.iv, second.iv);
   assert.notEqual(first.ciphertext, second.ciphertext);
+  assert.equal(JSON.stringify(first).includes(clientSecret), false);
   assert.equal(Buffer.from(first.iv, 'base64').length, 12);
   assert.equal(Buffer.from(first.authTag, 'base64').length, 16);
   assert.equal(
@@ -129,8 +118,8 @@ for (const [label, createAttempt] of rejectionCases) {
       () => encryption.decryptClientSecret(createAttempt({ envelope })),
       (error) => {
         assert.equal(error.code, 'APS_CLIENT_SECRET_DECRYPTION_FAILED');
-        assert.doesNotMatch(error.message, new RegExp(clientSecret, 'i'));
-        assert.doesNotMatch(error.message, new RegExp(envelope.ciphertext, 'i'));
+        assert.equal(error.message.includes(clientSecret), false);
+        assert.equal(error.message.includes(envelope.ciphertext), false);
         return true;
       },
     );
@@ -153,8 +142,8 @@ test('rejects decryption with a different key without exposing either key', () =
       }),
     (error) => {
       assert.equal(error.code, 'APS_CLIENT_SECRET_DECRYPTION_FAILED');
-      assert.doesNotMatch(error.message, new RegExp(encodedKey, 'i'));
-      assert.doesNotMatch(error.message, new RegExp(otherEncodedKey, 'i'));
+      assert.equal(error.message.includes(encodedKey), false);
+      assert.equal(error.message.includes(otherEncodedKey), false);
       return true;
     },
   );

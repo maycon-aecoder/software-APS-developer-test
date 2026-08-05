@@ -1,20 +1,9 @@
 const assert = require('node:assert/strict');
-const { existsSync } = require('node:fs');
-const path = require('node:path');
 const test = require('node:test');
 
-const subjectPath = path.join(__dirname, '../../src/services/apsConfigurationService.js');
-const subject = existsSync(subjectPath)
-  ? require(subjectPath)
-  : {
-      createApsConfigurationService: () => ({
-        getConfiguration: async () => undefined,
-        getConfigurationForService: async () => undefined,
-        saveConfiguration: async () => undefined,
-      }),
-    };
-
-const { createApsConfigurationService } = subject;
+const {
+  createApsConfigurationService,
+} = require('../../src/services/apsConfigurationService');
 const { canonicalizeModelUrn } = require('../../src/domain/modelUrn');
 
 const userId = '66b28e44b8967d23c43e9371';

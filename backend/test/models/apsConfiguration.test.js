@@ -1,27 +1,10 @@
 const assert = require('node:assert/strict');
-const { existsSync } = require('node:fs');
-const path = require('node:path');
 const test = require('node:test');
 
-const subjectPath = path.join(__dirname, '../../src/models/ApsConfiguration.js');
-const subject = existsSync(subjectPath)
-  ? require(subjectPath)
-  : {
-      ApsConfiguration: class MissingApsConfiguration {
-        static schema = { indexes: () => [], path: () => undefined };
-
-        constructor(value) {
-          this.value = value;
-        }
-
-        toJSON() {
-          return this.value;
-        }
-      },
-      APS_CONFIGURATION_PROJECTIONS: {},
-    };
-
-const { ApsConfiguration, APS_CONFIGURATION_PROJECTIONS } = subject;
+const {
+  ApsConfiguration,
+  APS_CONFIGURATION_PROJECTIONS,
+} = require('../../src/models/ApsConfiguration');
 
 test('defines one unique per-user configuration index', () => {
   const uniqueUserIndexes = ApsConfiguration.schema
@@ -29,6 +12,11 @@ test('defines one unique per-user configuration index', () => {
     .filter(([fields, options]) => fields.userId === 1 && options.unique === true);
 
   assert.equal(uniqueUserIndexes.length, 1);
+  assert.equal(
+    ApsConfiguration.schema.options.autoIndex,
+    true,
+    'The explicit startup init must not inherit a disabled global autoIndex setting',
+  );
 });
 
 test('excludes the secret envelope by default and exposes explicit safe and service projections', () => {
