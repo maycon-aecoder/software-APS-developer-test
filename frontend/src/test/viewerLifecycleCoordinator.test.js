@@ -30,6 +30,7 @@ function createHarness({
   initializer,
   loadAssets,
   loadDocumentNode,
+  loadQuantityPanelExtension,
   logger,
   shutdown,
   startResult = 0,
@@ -112,6 +113,7 @@ function createHarness({
     createQuantityAnalysis,
     createToolbarController,
     loadAssets: loadAssets ?? vi.fn().mockResolvedValue(viewing),
+    loadQuantityPanelExtension,
     logger,
     onStateChange: (state) => states.push(state),
     tokenProvider,
@@ -120,6 +122,60 @@ function createHarness({
 
   return { calls, coordinator, documentValue, registrations, states, tokenProvider, viewable, viewers, viewing };
 }
+
+test('loads one quantity extension, forwards safe details, and resets it before model replacement', async () => {
+  let onQuantityResult;
+  const panel = {
+    reset: vi.fn(),
+    setCategoryDbIds: vi.fn(),
+    setQuantityResult: vi.fn(),
+  };
+  const loadQuantityPanelExtension = vi.fn(async () => panel);
+  const createQuantityAnalysis = vi.fn((options) => {
+    onQuantityResult = options.onQuantityResult;
+    return { acceptCategoryResult: vi.fn(), dispose: vi.fn() };
+  });
+  const harness = createHarness({ createQuantityAnalysis, loadQuantityPanelExtension });
+  await harness.coordinator.execute(command());
+
+  expect(loadQuantityPanelExtension).toHaveBeenCalledTimes(1);
+  expect(loadQuantityPanelExtension).toHaveBeenCalledWith(expect.objectContaining({
+    onFeedback: expect.any(Function),
+    viewer: harness.viewers[0],
+    viewing: harness.viewing,
+  }));
+  onQuantityResult({
+    area: { status: 'partial', total: 1.5, unit: 'm2' },
+    category: 'Doors',
+    count: 2,
+    elements: [
+      { area: { status: 'available', unit: 'm2', value: 1.5 }, name: 'Single Door' },
+      { area: { status: 'unavailable' }, name: 'Door element 2' },
+    ],
+    status: 'ready',
+  });
+  expect(panel.setQuantityResult).toHaveBeenCalledWith({
+    area: { status: 'partial', total: 1.5, unit: 'm2' },
+    category: 'Doors',
+    count: 2,
+    elements: [
+      { area: { status: 'available', unit: 'm2', value: 1.5 }, name: 'Single Door' },
+      { area: { status: 'unavailable' }, name: 'Door element 2' },
+    ],
+    status: 'ready',
+  });
+
+  await harness.coordinator.execute(command({
+    type: 'replace-model',
+    configuration: { modelUrn: 'bmV3LW1vZGVs' },
+    generations: { configuration: 2, model: 2, analysis: 2 },
+  }));
+
+  expect(loadQuantityPanelExtension).toHaveBeenCalledTimes(1);
+  expect(panel.reset).toHaveBeenCalledTimes(1);
+  expect(panel.reset.mock.invocationCallOrder[0])
+    .toBeLessThan(harness.viewers[0].unloadModel.mock.invocationCallOrder[0]);
+});
 
 function command(overrides = {}) {
   return {
@@ -279,6 +335,10 @@ test('forwards only sanitized Door and Window results into active quantity analy
     area: { status: 'complete', total: 3.5, unit: 'm²' },
     category: 'Doors',
     count: 2,
+    elements: [
+      { area: { status: 'available', unit: 'm²', value: 1.5 }, name: 'Door A' },
+      { area: { status: 'available', unit: 'm²', value: 2 }, name: 'Door B' },
+    ],
     status: 'ready',
   });
 
@@ -289,6 +349,10 @@ test('forwards only sanitized Door and Window results into active quantity analy
         area: { status: 'complete', total: 3.5, unit: 'm²' },
         category: 'Doors',
         count: 2,
+        elements: [
+          { area: { status: 'available', unit: 'm²', value: 1.5 }, name: 'Door A' },
+          { area: { status: 'available', unit: 'm²', value: 2 }, name: 'Door B' },
+        ],
         status: 'ready',
       },
     },
@@ -365,12 +429,67 @@ test('maps malformed current quantity output to an actionable safe fallback', as
   expect(JSON.stringify(logger.error.mock.calls)).not.toContain('must-not-cross');
 });
 
+test('keeps geometry ready and exposes safe retry feedback when the quantity extension cannot load', async () => {
+  const logger = { error: vi.fn() };
+  const loadQuantityPanelExtension = vi.fn(() => Promise.reject(new Error('raw extension failure')));
+  const harness = createHarness({ loadQuantityPanelExtension, logger });
+
+  await harness.coordinator.execute(command());
+
+  expect(harness.viewers[0].model).toBeTruthy();
+  expect(harness.coordinator.getSnapshot()).toMatchObject({
+    message: 'The model is ready, but model quantities could not be displayed. Retry loading the model.',
+    phase: 'ready',
+    tone: 'error',
+  });
+  expect(JSON.stringify(logger.error.mock.calls)).not.toContain('raw extension failure');
+
+  await harness.coordinator.retry();
+  expect(loadQuantityPanelExtension).toHaveBeenCalledTimes(2);
+});
+
+test('keeps geometry ready and maps a quantity panel update failure without exposing raw data', async () => {
+  let onQuantityResult;
+  const logger = { error: vi.fn() };
+  const panel = {
+    reset: vi.fn(),
+    setCategoryDbIds: vi.fn(),
+    setQuantityResult: vi.fn(() => { throw new Error('raw panel update failure'); }),
+  };
+  const createQuantityAnalysis = vi.fn((options) => {
+    onQuantityResult = options.onQuantityResult;
+    return { acceptCategoryResult: vi.fn(), dispose: vi.fn() };
+  });
+  const harness = createHarness({
+    createQuantityAnalysis,
+    loadQuantityPanelExtension: vi.fn().mockResolvedValue(panel),
+    logger,
+  });
+  await harness.coordinator.execute(command());
+
+  expect(() => onQuantityResult({
+    area: { status: 'unavailable', total: null, unit: null },
+    category: 'Windows',
+    count: 1,
+    elements: [{ area: { status: 'unavailable' }, name: 'Window A' }],
+    status: 'ready',
+  })).not.toThrow();
+  expect(harness.viewers[0].model).toBeTruthy();
+  expect(harness.coordinator.getSnapshot()).toMatchObject({
+    message: 'The model is ready, but model quantities could not be displayed. Retry loading the model.',
+    phase: 'ready',
+    tone: 'error',
+  });
+  expect(JSON.stringify(logger.error.mock.calls)).not.toContain('raw panel update failure');
+});
+
 test('disposes and clears replaced quantity state while suppressing stale results and diagnostics', async () => {
   const logger = { error: vi.fn() };
   const categoryCallbacks = [];
   const quantityCallbacks = [];
   const quantityDiagnosticCallbacks = [];
   const quantityAnalyses = [];
+  const panel = { reset: vi.fn(), setCategoryDbIds: vi.fn(), setQuantityResult: vi.fn() };
   const createModelAnalysis = vi.fn(({ onCategoryResult }) => {
     categoryCallbacks.push(onCategoryResult);
     return { dispose: vi.fn(), start: vi.fn().mockResolvedValue(undefined) };
@@ -382,17 +501,26 @@ test('disposes and clears replaced quantity state while suppressing stale result
     quantityAnalyses.push(analysis);
     return analysis;
   });
-  const harness = createHarness({ createModelAnalysis, createQuantityAnalysis, logger });
+  const harness = createHarness({
+    createModelAnalysis,
+    createQuantityAnalysis,
+    loadQuantityPanelExtension: vi.fn().mockResolvedValue(panel),
+    logger,
+  });
   await harness.coordinator.execute(command());
+  categoryCallbacks[0]({ category: 'Doors', dbIds: [101, 101, 102], status: 'ready' });
+  expect(panel.setCategoryDbIds).toHaveBeenCalledWith('Doors', [101, 102]);
   expect(quantityCallbacks).toHaveLength(1);
   if (!quantityCallbacks[0]) return;
   quantityCallbacks[0]({
     area: { status: 'complete', total: 10, unit: 'm²' },
     category: 'Doors',
     count: 1,
+    elements: [{ area: { status: 'available', unit: 'm²', value: 10 }, name: 'Door A' }],
     status: 'ready',
   });
   expect(harness.coordinator.getSnapshot().quantities.Doors.count).toBe(1);
+  expect(panel.setQuantityResult).toHaveBeenCalledTimes(1);
 
   await harness.coordinator.execute(command({
     type: 'replace-model',
@@ -402,6 +530,7 @@ test('disposes and clears replaced quantity state while suppressing stale result
 
   expect(quantityAnalyses[0].dispose).toHaveBeenCalledTimes(1);
   expect(harness.coordinator.getSnapshot().quantities).toBeUndefined();
+  const panelUpdatesAfterReplacement = panel.setQuantityResult.mock.calls.length;
   quantityCallbacks[0]({
     area: { status: 'failed', total: null, unit: null },
     category: 'Doors',
@@ -415,6 +544,7 @@ test('disposes and clears replaced quantity state while suppressing stale result
     stage: 'read',
   });
   expect(harness.coordinator.getSnapshot().quantities).toBeUndefined();
+  expect(panel.setQuantityResult).toHaveBeenCalledTimes(panelUpdatesAfterReplacement);
   expect(JSON.stringify(logger.error.mock.calls)).not.toContain('obsolete raw failure');
 
   quantityCallbacks[1]({ category: 'Windows', count: null, status: 'failed' });
@@ -427,6 +557,7 @@ test('disposes and clears replaced quantity state while suppressing stale result
 test('disposes quantity and toolbar ownership before finishing a Viewer during credential reset', async () => {
   const ownershipCalls = [];
   const quantityAnalyses = [];
+  const quantityPanels = [];
   const toolbarControllers = [];
   const createModelAnalysis = vi.fn(() => ({
     dispose: vi.fn(),
@@ -449,10 +580,20 @@ test('disposes quantity and toolbar ownership before finishing a Viewer during c
     toolbarControllers.push(controller);
     return controller;
   });
+  const loadQuantityPanelExtension = vi.fn(async () => {
+    const panel = {
+      reset: vi.fn(() => ownershipCalls.push('quantity-panel-reset')),
+      setCategoryDbIds: vi.fn(),
+      setQuantityResult: vi.fn(),
+    };
+    quantityPanels.push(panel);
+    return panel;
+  });
   const harness = createHarness({
     createModelAnalysis,
     createQuantityAnalysis,
     createToolbarController,
+    loadQuantityPanelExtension,
   });
   await harness.coordinator.execute(command());
   harness.viewers[0].finish.mockImplementation(() => ownershipCalls.push('finish'));
@@ -468,11 +609,14 @@ test('disposes quantity and toolbar ownership before finishing a Viewer during c
     },
   }));
 
-  expect(ownershipCalls.slice(0, 3)).toEqual([
+  expect(ownershipCalls.slice(0, 4)).toEqual([
+    'quantity-panel-reset',
     'quantity-dispose',
     'toolbar-dispose',
     'finish',
   ]);
+  expect(loadQuantityPanelExtension).toHaveBeenCalledTimes(2);
+  expect(quantityPanels).toHaveLength(2);
   expect(quantityAnalyses).toHaveLength(2);
   expect(quantityAnalyses[0].dispose).toHaveBeenCalledTimes(1);
   expect(toolbarControllers).toHaveLength(2);

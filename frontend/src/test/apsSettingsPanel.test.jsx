@@ -172,7 +172,7 @@ test('integrates settings into the authenticated home while preserving the exist
   expect(screen.getByRole('heading', { name: /Welcome, Jane Doe/ })).toBeTruthy();
   expect(await screen.findByRole('heading', { name: 'APS model settings' })).toBeTruthy();
   expect(screen.getByRole('region', { name: '3D model viewer' })).toBeTruthy();
-  expect(screen.getByRole('region', { name: 'Door and Window quantities' })).toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Door and Window quantities' })).toBeNull();
 });
 
 test('keeps the authenticated shell usable when account context is unavailable', () => {

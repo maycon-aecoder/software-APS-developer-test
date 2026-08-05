@@ -31,6 +31,7 @@ function createModel({ fail = false, malformed = false, malformedProperties = fa
         .filter((dbId) => dbId !== 2)
         .map((dbId) => ({
           dbId,
+          name: ` Element ${dbId} `,
           secretExtra: 'must-not-cross',
           properties: [{
             attributeName: 'revit.area',
@@ -55,6 +56,7 @@ test('reads visible Area properties in bounded batches and whitelists public fie
   await expect(readModelAreaProperties(model, [1, 2, 3], { batchSize: 2 })).resolves.toEqual([
     {
       dbId: 1,
+      name: 'Element 1',
       properties: [{
         attributeName: 'revit.area',
         displayCategory: 'Dimensions',
@@ -68,6 +70,7 @@ test('reads visible Area properties in bounded batches and whitelists public fie
     },
     {
       dbId: 3,
+      name: 'Element 3',
       properties: [{
         attributeName: 'revit.area',
         displayCategory: 'Dimensions',

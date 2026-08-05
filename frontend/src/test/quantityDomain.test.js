@@ -10,10 +10,16 @@ const subject = existsSync(subjectPath)
   ? await import(/* @vite-ignore */ subjectPath)
   : {
       countUniqueInstances: () => undefined,
+      createAreaElementRows: () => undefined,
       createAreaReport: () => undefined,
       parseAreaValue: () => undefined,
     };
-const { countUniqueInstances, createAreaReport, parseAreaValue } = subject;
+const {
+  countUniqueInstances,
+  createAreaElementRows,
+  createAreaReport,
+  parseAreaValue,
+} = subject;
 
 function areaProperty(displayValue, overrides = {}) {
   return {
@@ -27,6 +33,77 @@ function areaProperty(displayValue, overrides = {}) {
 function result(dbId, properties) {
   return { dbId, properties };
 }
+
+test('creates ordered public element rows with exact individual Area values and accessible fallbacks', () => {
+  const rows = createAreaElementRows('Doors', [3, 3, 7, 9], [
+    { ...result(3, [areaProperty('1.25')]), name: ' Single Door ' },
+    { ...result(7, []), name: '   ' },
+    { ...result(9, [areaProperty(2, { units: 'ft\u00B2' })]), name: null },
+  ]);
+
+  expect(rows).toEqual([
+    { area: { status: 'available', unit: 'm\u00B2', value: 1.25 }, name: 'Single Door' },
+    { area: { status: 'unavailable' }, name: 'Door element 2' },
+    { area: { status: 'available', unit: 'ft\u00B2', value: 2 }, name: 'Door element 3' },
+  ]);
+  expect(JSON.stringify(rows)).not.toMatch(/dbId|properties|secret/i);
+});
+
+test('keeps ambiguous individual Area unavailable instead of guessing a value', () => {
+  const rows = createAreaElementRows('Windows', [4], [{
+    ...result(4, [
+      areaProperty(2, { attributeName: 'a', type: 3 }),
+      areaProperty(3, { attributeName: 'a', type: 3 }),
+    ]),
+    name: 'Window A',
+  }]);
+
+  expect(rows).toEqual([{ area: { status: 'unavailable' }, name: 'Window A' }]);
+});
+
+test.each([
+  ['autodesk.unit.unit:squareMeters-1.0.1', 'm\u00B2'],
+  ['autodesk.unit.unit:squareFeet-1.0.1', 'ft\u00B2'],
+  ['autodesk.unit.unit:squareInches-1.0.1', 'in\u00B2'],
+  ['autodesk.unit.unit:squareMillimeters-1.0.1', 'mm\u00B2'],
+])('maps the documented Autodesk Area unit %s to the public label %s', (unit, label) => {
+  const report = createAreaReport([1], [result(1, [areaProperty(2, { units: unit })])]);
+  const rows = createAreaElementRows('Doors', [1], [{
+    ...result(1, [areaProperty(2, { units: unit })]),
+    name: 'Door A',
+  }]);
+
+  expect(report).toEqual({ status: 'complete', total: 2, unit: label });
+  expect(rows[0].area).toEqual({ status: 'available', unit: label, value: 2 });
+});
+
+test('does not expose an unmapped Autodesk unit identifier', () => {
+  const report = createAreaReport([1], [result(1, [
+    areaProperty(2, { units: 'autodesk.unit.unit:unknownArea-1.0.0' }),
+  ])]);
+
+  expect(report).toEqual({ status: 'unavailable', total: null, unit: null });
+});
+
+test.each([
+  [
+    [
+      areaProperty(2, { attributeName: 'revit.area', type: 3 }),
+      areaProperty(2, { attributeName: 'revit.area', type: 3 }),
+    ],
+    'complete',
+    'available',
+  ],
+  [[], 'unavailable', 'unavailable'],
+  [[areaProperty(2, { units: ' m\u00B2 ' })], 'complete', 'available'],
+])(
+  'keeps aggregate %s and individual %s contribution decisions consistent',
+  (properties, aggregateStatus, elementStatus) => {
+    const records = [{ ...result(1, properties), name: 'Element A' }];
+    expect(createAreaReport([1], records).status).toBe(aggregateStatus);
+    expect(createAreaElementRows('Doors', [1], records)[0].area.status).toBe(elementStatus);
+  },
+);
 
 test.each([
   [[], 0],

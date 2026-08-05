@@ -62,7 +62,7 @@ test('announces a category-analysis failure and offers a keyboard-operable retry
   expect(coordinator.retry).toHaveBeenCalledTimes(1);
 });
 
-test('keeps the Viewer available while rendering progressive quantities', () => {
+test('keeps progressive quantities inside the Viewer-owned extension surface', () => {
   const coordinator = createCoordinator({
     phase: 'ready',
     message: 'The configured 3D model is ready.',
@@ -79,8 +79,7 @@ test('keeps the Viewer available while rendering progressive quantities', () => 
 
   expect(screen.getByRole('region', { name: '3D model viewer' })
     .querySelector('[data-aps-viewer-host]')).toBeTruthy();
-  expect(screen.getByRole('region', { name: 'Door and Window quantities' }).textContent)
-    .toContain('Calculating Area');
+  expect(screen.queryByRole('region', { name: 'Door and Window quantities' })).toBeNull();
 });
 
 test('offers model retry for quantity failure while preserving a safe count', async () => {
@@ -98,8 +97,7 @@ test('offers model retry for quantity failure while preserving a safe count', as
   });
   render(<ApsViewerHost coordinator={coordinator} />);
 
-  expect(screen.getByText('The Door count is available, but its Area could not be calculated. Retry loading the model.'))
-    .toBeTruthy();
+  expect(screen.queryByRole('region', { name: 'Door and Window quantities' })).toBeNull();
   await userEvent.setup().click(screen.getByRole('button', { name: 'Retry loading model' }));
   expect(coordinator.retry).toHaveBeenCalledTimes(1);
 });

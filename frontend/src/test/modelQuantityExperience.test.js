@@ -25,11 +25,12 @@ function areaResult(dbId, value = dbId) {
   };
 }
 
-function createHarness({ createAreaReport, readAreaProperties } = {}) {
+function createHarness({ createAreaDetails, createAreaReport, readAreaProperties } = {}) {
   const diagnostics = [];
   const results = [];
   const model = { id: 'active-model' };
   const experience = createModelQuantityExperience({
+    ...(createAreaDetails ? { createAreaDetails } : {}),
     createAreaReport: createAreaReport ?? vi.fn(() => ({
       status: 'complete',
       total: 3,
@@ -44,6 +45,35 @@ function createHarness({ createAreaReport, readAreaProperties } = {}) {
   });
   return { diagnostics, experience, model, results };
 }
+
+test('publishes safe ordered element details with the completed category analysis', async () => {
+  const createAreaDetails = vi.fn(() => ([
+    { area: { status: 'available', unit: 'm2', value: 1 }, name: 'Single Door' },
+    { area: { status: 'unavailable' }, name: 'Door element 2' },
+  ]));
+  const harness = createHarness({ createAreaDetails });
+
+  await harness.experience.acceptCategoryResult({
+    category: 'Doors',
+    dbIds: [1, 2],
+    status: 'ready',
+  });
+
+  expect(createAreaDetails).toHaveBeenCalledWith(
+    'Doors',
+    [1, 2],
+    expect.arrayContaining([expect.objectContaining({ dbId: 1 }), expect.objectContaining({ dbId: 2 })]),
+  );
+  expect(harness.results.at(-1)).toMatchObject({
+    category: 'Doors',
+    count: 2,
+    elements: [
+      { area: { status: 'available', unit: 'm2', value: 1 }, name: 'Single Door' },
+      { area: { status: 'unavailable' }, name: 'Door element 2' },
+    ],
+    status: 'ready',
+  });
+});
 
 test('publishes a deduplicated safe count before deferred Area completion', async () => {
   const deferred = createDeferred();
@@ -65,7 +95,7 @@ test('publishes a deduplicated safe count before deferred Area completion', asyn
   deferred.resolve([areaResult(1, 1), areaResult(2, 2)]);
   await completion;
 
-  expect(harness.results.at(-1)).toEqual({
+  expect(harness.results.at(-1)).toMatchObject({
     area: { status: 'complete', total: 3, unit: 'm²' },
     category: 'Doors',
     count: 2,
@@ -87,6 +117,7 @@ test('publishes zero with unavailable Area without reading Viewer properties', a
     area: { status: 'unavailable', total: null, unit: null },
     category: 'Windows',
     count: 0,
+    elements: [],
     status: 'ready',
   });
   expect(readAreaProperties).not.toHaveBeenCalled();
@@ -150,6 +181,7 @@ test('retains a safe Door count after Area failure without blocking Windows', as
       area: { status: 'failed', total: null, unit: null },
       category: 'Doors',
       count: 1,
+      elements: [],
       status: 'ready',
     },
   ]);
@@ -160,6 +192,7 @@ test('retains a safe Door count after Area failure without blocking Windows', as
     area: { status: 'complete', total: 4, unit: 'm²' },
     category: 'Windows',
     count: 1,
+    elements: [expect.objectContaining({ name: 'Window element 1' })],
     status: 'ready',
   });
   expect(harness.diagnostics).toEqual([{
@@ -232,7 +265,7 @@ test.each(['resolve', 'reject'])(
     await Promise.all([obsolete, current]);
 
     expect(signals[0]?.aborted).toBe(true);
-    expect(harness.results.at(-1)).toEqual({
+    expect(harness.results.at(-1)).toMatchObject({
       area: { status: 'complete', total: 2, unit: 'm²' },
       category: 'Doors',
       count: 1,
