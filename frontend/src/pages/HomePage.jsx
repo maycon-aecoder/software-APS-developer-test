@@ -5,18 +5,30 @@ import { useAuth } from '../context/AuthContext';
 import { getApsConfiguration, saveApsConfiguration } from '../features/aps/api/configuration';
 import ApsSettingsPanel from '../features/aps/settings/ApsSettingsPanel';
 import { createApsSettingsController } from '../features/aps/settings/createApsSettingsController';
+import ApsViewerHost from '../features/aps/viewer/ApsViewerHost';
+import { createViewerLifecycleCoordinator } from '../features/aps/viewer/createViewerLifecycleCoordinator';
+import { createViewerTokenProvider } from '../features/aps/viewer/createViewerTokenProvider';
+import { loadViewerAssets } from '../features/aps/viewer/loadViewerAssets';
 
 const HomePage = () => {
   const { user } = useAuth();
   const workspaceId = useId();
+  const viewerCoordinator = useMemo(
+    () => createViewerLifecycleCoordinator({
+      loadAssets: loadViewerAssets,
+      tokenProvider: createViewerTokenProvider(),
+    }),
+    [],
+  );
   const settingsController = useMemo(
     () => createApsSettingsController({
       api: {
         getConfiguration: getApsConfiguration,
         saveConfiguration: saveApsConfiguration,
       },
+      onLifecycleCommand: viewerCoordinator.execute,
     }),
-    [],
+    [viewerCoordinator],
   );
 
   return (
@@ -26,16 +38,19 @@ const HomePage = () => {
 
       {/* Main content — offset for fixed topbar and sidebar */}
       <main className="ml-60 pt-16 p-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="mx-auto max-w-6xl">
           <h1 className="text-2xl font-bold text-gray-800 mb-2">
             Welcome, {user?.name ?? 'User'} 👋
           </h1>
 
           {user?.id ? (
-            <ApsSettingsPanel
-              controller={settingsController}
-              context={{ userId: user.id, workspaceId }}
-            />
+            <div className="space-y-6">
+              <ApsSettingsPanel
+                controller={settingsController}
+                context={{ userId: user.id, workspaceId }}
+              />
+              <ApsViewerHost coordinator={viewerCoordinator} />
+            </div>
           ) : (
             <section className="rounded-2xl border border-red-200 bg-white p-6 shadow-sm">
               <p aria-live="assertive" className="text-sm text-red-700">

@@ -1,23 +1,11 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 
+import {
+  createViewerAssetLoader,
+  VIEWER_ASSET_URLS,
+} from '../features/aps/viewer/loadViewerAssets';
+import { selectSupported3DViewable } from '../features/aps/viewer/select3DViewable';
 import { createBubbleNode } from './fixtures/viewerDoubles';
-
-const assetsPath = path.resolve(process.cwd(), 'src/features/aps/viewer/loadViewerAssets.js');
-const selectionPath = path.resolve(process.cwd(), 'src/features/aps/viewer/select3DViewable.js');
-const assetsSubject = existsSync(assetsPath)
-  ? await import(/* @vite-ignore */ assetsPath)
-  : {
-      VIEWER_ASSET_URLS: {},
-      createViewerAssetLoader: () => () => Promise.resolve(),
-    };
-const selectionSubject = existsSync(selectionPath)
-  ? await import(/* @vite-ignore */ selectionPath)
-  : { selectSupported3DViewable: () => undefined };
-
-const { VIEWER_ASSET_URLS, createViewerAssetLoader } = assetsSubject;
-const { selectSupported3DViewable } = selectionSubject;
 
 afterEach(() => {
   document.head.replaceChildren();
@@ -48,6 +36,7 @@ test('shares one in-flight asset promise and inserts each matching asset once', 
   expect(document.head.querySelector('script')?.src).toBe(VIEWER_ASSET_URLS.script);
 
   viewing = { Initializer() {} };
+  document.head.querySelector('link')?.dispatchEvent(new Event('load'));
   document.head.querySelector('script')?.dispatchEvent(new Event('load'));
   await expect(first).resolves.toBe(viewing);
   await expect(loadAssets()).resolves.toBe(viewing);
@@ -81,6 +70,32 @@ test('reports an actionable asset failure and permits a clean retry', async () =
 
   const retry = loadAssets();
   viewing = { Initializer() {} };
+  document.head.querySelector('link')?.dispatchEvent(new Event('load'));
+  document.head.querySelector('script')?.dispatchEvent(new Event('load'));
+  await expect(retry).resolves.toBe(viewing);
+});
+
+test('treats a stylesheet failure as an asset failure and permits a clean retry', async () => {
+  let viewing;
+  const loadAssets = createViewerAssetLoader({
+    documentRef: document,
+    getViewing: () => viewing,
+  });
+  const first = loadAssets();
+  document.head.querySelector('link')?.dispatchEvent(new Event('error'));
+
+  const outcome = await Promise.race([
+    first.then(() => 'resolved', () => 'rejected'),
+    new Promise((resolve) => setTimeout(() => resolve('pending'), 0)),
+  ]);
+  expect(outcome).toBe('rejected');
+  await expect(first).rejects.toMatchObject({ code: 'APS_VIEWER_ASSET_LOAD_FAILED' });
+  expect(document.head.querySelectorAll('link')).toHaveLength(0);
+  expect(document.head.querySelectorAll('script')).toHaveLength(0);
+
+  const retry = loadAssets();
+  viewing = { Initializer() {} };
+  document.head.querySelector('link')?.dispatchEvent(new Event('load'));
   document.head.querySelector('script')?.dispatchEvent(new Event('load'));
   await expect(retry).resolves.toBe(viewing);
 });

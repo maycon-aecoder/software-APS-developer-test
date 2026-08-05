@@ -1,14 +1,7 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
-
-const subjectPath = path.resolve(process.cwd(), 'src/features/aps/viewer/ApsViewerHost.jsx');
-const subject = existsSync(subjectPath)
-  ? await import(/* @vite-ignore */ subjectPath)
-  : { default: () => null };
-const { default: ApsViewerHost } = subject;
+import ApsViewerHost from '../features/aps/viewer/ApsViewerHost';
 
 afterEach(cleanup);
 
@@ -49,9 +42,9 @@ test('shows actionable load failure feedback and exposes a keyboard retry action
   });
   render(<ApsViewerHost coordinator={coordinator} />);
 
-  expect(screen.getByText(
+  expect(screen.getByRole('alert').textContent).toContain(
     'The configured model could not be opened. Verify its URN and retry.',
-  )).toBeTruthy();
+  );
   await userEvent.setup().click(screen.getByRole('button', { name: 'Retry loading model' }));
   expect(coordinator.retry).toHaveBeenCalledTimes(1);
 });

@@ -1,27 +1,7 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { expect, test, vi } from 'vitest';
 
+import { createViewerLifecycleCoordinator } from '../features/aps/viewer/createViewerLifecycleCoordinator';
 import { createBubbleNode, createDeferred } from './fixtures/viewerDoubles';
-
-const subjectPath = path.resolve(
-  process.cwd(),
-  'src/features/aps/viewer/createViewerLifecycleCoordinator.js',
-);
-const subject = existsSync(subjectPath)
-  ? await import(/* @vite-ignore */ subjectPath)
-  : {
-      createViewerLifecycleCoordinator: () => ({
-        attachHost() {},
-        dispose: async () => {},
-        execute: async () => {},
-        getSnapshot: () => ({ phase: 'unavailable', message: '' }),
-        retry: async () => {},
-        subscribe: () => () => {},
-      }),
-    };
-
-const { createViewerLifecycleCoordinator } = subject;
 
 const baseGenerations = Object.freeze({
   configuration: 1,
@@ -47,6 +27,7 @@ function createHarness({
   initializer,
   loadAssets,
   loadDocumentNode,
+  shutdown,
   startResult = 0,
 } = {}) {
   const calls = [];
@@ -102,7 +83,10 @@ function createHarness({
       callback();
       return undefined;
     }),
-    shutdown: vi.fn(() => calls.push(['shutdown'])),
+    shutdown: vi.fn(() => {
+      calls.push(['shutdown']);
+      return shutdown?.();
+    }),
   };
   const registrations = [];
   const tokenProvider = {
@@ -394,6 +378,41 @@ test('keeps a failed credential reset empty and retries without shutting down th
   expect(harness.coordinator.getSnapshot().phase).toBe('ready');
   expect(harness.viewing.shutdown).toHaveBeenCalledTimes(1);
   expect(harness.viewers).toHaveLength(2);
+});
+
+test('retains failed shutdown ownership and retries teardown before reinitializing', async () => {
+  let shutdownAttempt = 0;
+  const harness = createHarness({
+    shutdown: () => {
+      shutdownAttempt += 1;
+      if (shutdownAttempt === 1) throw new Error('controlled shutdown failure');
+    },
+  });
+  await harness.coordinator.execute(command());
+
+  await harness.coordinator.execute(command({
+    type: 'reset-runtime',
+    changeType: 'credential-replacement',
+    generations: {
+      configuration: 2,
+      authentication: 2,
+      runtime: 2,
+      model: 2,
+      analysis: 2,
+    },
+  }));
+
+  expect(harness.coordinator.getSnapshot().phase).toBe('load-failed');
+  expect(harness.viewers[0].finish).toHaveBeenCalledTimes(1);
+  expect(harness.viewing.Initializer).toHaveBeenCalledTimes(1);
+
+  await harness.coordinator.retry();
+
+  expect(harness.viewing.shutdown).toHaveBeenCalledTimes(2);
+  expect(harness.viewers[0].finish).toHaveBeenCalledTimes(1);
+  expect(harness.viewing.Initializer).toHaveBeenCalledTimes(2);
+  expect(harness.viewers).toHaveLength(2);
+  expect(harness.coordinator.getSnapshot().phase).toBe('ready');
 });
 
 test('coalesces overlapping credential resets so only the newest generation reinitializes', async () => {
