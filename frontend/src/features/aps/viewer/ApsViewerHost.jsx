@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
+import ApsQuantityReport from '../quantity/ApsQuantityReport';
 
 export default function ApsViewerHost({ coordinator }) {
   const hostRef = useRef(null);
@@ -16,7 +17,10 @@ export default function ApsViewerHost({ coordinator }) {
   }, [coordinator]);
 
   const isError = state.phase === 'load-failed' || state.tone === 'error';
-  const isRetryable = state.phase === 'load-failed' || state.tone === 'error';
+  const hasQuantityFailure = Object.values(state.quantities ?? {}).some((quantity) => (
+    quantity?.status === 'failed' || quantity?.area?.status === 'failed'
+  ));
+  const isRetryable = state.phase === 'load-failed' || state.tone === 'error' || hasQuantityFailure;
 
   return (
     <section
@@ -46,6 +50,7 @@ export default function ApsViewerHost({ coordinator }) {
           </button>
         )}
       </div>
+      <ApsQuantityReport quantities={state.quantities} />
     </section>
   );
 }

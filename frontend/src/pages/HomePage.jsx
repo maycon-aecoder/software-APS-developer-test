@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import { getApsConfiguration, saveApsConfiguration } from '../features/aps/api/configuration';
 import { createModelCategoryExperience } from '../features/aps/analysis/createModelCategoryExperience';
+import { createModelQuantityExperience } from '../features/aps/analysis/createModelQuantityExperience';
 import ApsSettingsPanel from '../features/aps/settings/ApsSettingsPanel';
 import { createApsSettingsController } from '../features/aps/settings/createApsSettingsController';
 import ApsViewerHost from '../features/aps/viewer/ApsViewerHost';
@@ -28,6 +29,7 @@ const HomePage = () => {
   const viewerCoordinator = useMemo(
     () => createViewerLifecycleCoordinator({
       createModelAnalysis: createModelCategoryExperience,
+      createQuantityAnalysis: createModelQuantityExperience,
       createToolbarController: (options) => createCategoryToolbarController({
         ...options,
         colors: createCategoryColors(),

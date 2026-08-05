@@ -25,10 +25,54 @@ const CATEGORY_ANALYSIS_MESSAGE =
 const CATEGORY_CONTROLS_MESSAGE =
   'The model is ready, but category controls could not be prepared. Retry loading the model.';
 const SUPPORTED_CATEGORY_RESULTS = new Set(['Furniture', 'Walls', 'Doors', 'Windows']);
+const SUPPORTED_QUANTITY_RESULTS = new Set(['Doors', 'Windows']);
 const TOOLBAR_CATEGORY_RESULTS = new Set(['Furniture', 'Walls', 'Doors']);
 
 function createFailure(code) {
   return Object.assign(new Error(code), { code });
+}
+
+function sanitizeQuantityResult(result) {
+  if (!SUPPORTED_QUANTITY_RESULTS.has(result?.category)) return null;
+  if (result.status === 'failed' && result.count === null && result.area === undefined) {
+    return { category: result.category, count: null, status: 'failed' };
+  }
+  if (!Number.isInteger(result.count) || result.count < 0) return null;
+  if (result.status === 'analyzing' && result.area?.status === 'loading') {
+    return {
+      area: { status: 'loading', total: null, unit: null },
+      category: result.category,
+      count: result.count,
+      status: 'analyzing',
+    };
+  }
+  if (result.status !== 'ready') return null;
+  const areaStatus = result.area?.status;
+  if (['unavailable', 'failed'].includes(areaStatus)) {
+    return {
+      area: { status: areaStatus, total: null, unit: null },
+      category: result.category,
+      count: result.count,
+      status: 'ready',
+    };
+  }
+  if (
+    !['complete', 'partial'].includes(areaStatus)
+    || typeof result.area.total !== 'number'
+    || !Number.isFinite(result.area.total)
+    || result.area.total < 0
+    || !(result.area.unit === null || typeof result.area.unit === 'string')
+  ) return null;
+  return {
+    area: {
+      status: areaStatus,
+      total: result.area.total,
+      unit: result.area.unit,
+    },
+    category: result.category,
+    count: result.count,
+    status: 'ready',
+  };
 }
 
 function captureCommand(command, operationId) {
@@ -110,6 +154,7 @@ function initializeViewing(viewing, options) {
 
 export function createViewerLifecycleCoordinator({
   createModelAnalysis,
+  createQuantityAnalysis,
   createToolbarController,
   loadAssets,
   tokenProvider,
@@ -132,6 +177,7 @@ export function createViewerLifecycleCoordinator({
   let viewer = null;
   let model = null;
   let modelAnalysis = null;
+  let quantityAnalysis = null;
   let toolbarController = null;
   const subscribers = new Set();
 
@@ -163,7 +209,16 @@ export function createViewerLifecycleCoordinator({
 
   function resetModelExperience() {
     const ownedAnalysis = modelAnalysis;
+    const ownedQuantityAnalysis = quantityAnalysis;
     modelAnalysis = null;
+    quantityAnalysis = null;
+    try {
+      ownedQuantityAnalysis?.dispose();
+    } catch {
+      logger.error('APS quantity analysis cleanup failed', {
+        code: 'APS_QUANTITY_CLEANUP_FAILED',
+      });
+    }
     try {
       ownedAnalysis?.dispose();
     } catch {
@@ -264,10 +319,122 @@ export function createViewerLifecycleCoordinator({
         [result.category]: safeResult,
       },
     });
+    if (SUPPORTED_QUANTITY_RESULTS.has(safeResult.category) && quantityAnalysis) {
+      const ownedQuantityAnalysis = quantityAnalysis;
+      const handleQuantityFailure = () => {
+        if (ownedQuantityAnalysis !== quantityAnalysis || !isOperationCurrent(command)) return;
+        logger.error('APS quantity analysis failed', {
+          category: safeResult.category,
+          code: 'APS_AREA_ANALYSIS_FAILED',
+          stage: 'orchestrate',
+        });
+        const fallback = safeResult.status === 'ready'
+          ? {
+            area: { status: 'failed', total: null, unit: null },
+            category: safeResult.category,
+            count: safeResult.dbIds.length,
+            status: 'ready',
+          }
+          : { category: safeResult.category, count: null, status: 'failed' };
+        publish({
+          ...snapshot,
+          quantities: { ...(snapshot.quantities ?? {}), [safeResult.category]: fallback },
+        });
+      };
+      let completion;
+      try {
+        completion = ownedQuantityAnalysis.acceptCategoryResult(safeResult);
+      } catch {
+        handleQuantityFailure();
+        return;
+      }
+      Promise.resolve(completion).catch(handleQuantityFailure);
+    }
+  }
+
+  function startQuantityAnalysis(command) {
+    if (!createQuantityAnalysis || !model) return;
+    let analysis = null;
+    try {
+      analysis = createQuantityAnalysis({
+        model,
+        onDiagnostic: (diagnostic) => {
+          if (analysis !== quantityAnalysis || !isOperationCurrent(command)) return;
+          const category = SUPPORTED_QUANTITY_RESULTS.has(diagnostic?.category)
+            ? diagnostic.category
+            : undefined;
+          const code = diagnostic?.code === 'APS_QUANTITY_COUNT_FAILED'
+            ? 'APS_QUANTITY_COUNT_FAILED'
+            : 'APS_AREA_ANALYSIS_FAILED';
+          const stage = ['count', 'read', 'report'].includes(diagnostic?.stage)
+            ? diagnostic.stage
+            : 'orchestrate';
+          logger.error('APS quantity analysis failed', { category, code, stage });
+        },
+        onQuantityResult: (result) => {
+          if (analysis !== quantityAnalysis || !isOperationCurrent(command)) return;
+          const safeResult = sanitizeQuantityResult(result);
+          if (!safeResult) {
+            if (!SUPPORTED_QUANTITY_RESULTS.has(result?.category)) return;
+            logger.error('APS quantity analysis failed', {
+              category: result.category,
+              code: 'APS_AREA_ANALYSIS_FAILED',
+              stage: 'publish',
+            });
+            const fallback = Number.isInteger(result?.count) && result.count >= 0
+              ? {
+                area: { status: 'failed', total: null, unit: null },
+                category: result.category,
+                count: result.count,
+                status: 'ready',
+              }
+              : { category: result.category, count: null, status: 'failed' };
+            publish({
+              ...snapshot,
+              quantities: {
+                ...(snapshot.quantities ?? {}),
+                [result.category]: fallback,
+              },
+            });
+            return;
+          }
+          publish({
+            ...snapshot,
+            quantities: {
+              ...(snapshot.quantities ?? {}),
+              [safeResult.category]: safeResult,
+            },
+          });
+        },
+      });
+      quantityAnalysis = analysis;
+    } catch {
+      if (quantityAnalysis === analysis) quantityAnalysis = null;
+      try {
+        analysis?.dispose();
+      } catch {
+        logger.error('APS quantity analysis cleanup failed', {
+          code: 'APS_QUANTITY_CLEANUP_FAILED',
+        });
+      }
+      logger.error('APS quantity analysis failed', {
+        code: 'APS_AREA_ANALYSIS_FAILED',
+        stage: 'setup',
+      });
+      publish({
+        ...snapshot,
+        quantities: {
+          Doors: { category: 'Doors', count: null, status: 'failed' },
+          Windows: { category: 'Windows', count: null, status: 'failed' },
+        },
+      });
+    }
   }
 
   function startModelAnalysis(command) {
-    if (!createModelAnalysis || !model) return;
+    if (!model) return;
+    startQuantityAnalysis(command);
+    if (!createModelAnalysis) return;
     let analysis = null;
     try {
       analysis = createModelAnalysis({
