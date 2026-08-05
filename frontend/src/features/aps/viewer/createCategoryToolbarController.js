@@ -46,7 +46,7 @@ export function createCategoryToolbarController({
 
   function setColor(dbId, color) {
     try {
-      viewer.setThemingColor(dbId, color, activeModel);
+      viewer.setThemingColor(dbId, color, activeModel, true);
       return true;
     } catch {
       return false;

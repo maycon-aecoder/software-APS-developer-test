@@ -143,7 +143,7 @@ test('waits for the native toolbar event and ignores repeated creation notificat
   expect(harness.controls).toHaveLength(1);
 });
 
-test('themes a ready category with its distinct color and active-model argument by keyboard', () => {
+test('themes a ready category recursively with its distinct color and active model by keyboard', () => {
   const harness = createHarness();
   mountAvailableToolbar(harness);
   harness.controller.setCategoryReady('Furniture', [5, 6, 5]);
@@ -156,8 +156,8 @@ test('themes a ready category with its distinct color and active-model argument 
   expect(furniture.state).toBe('active');
   expect(furniture.container.getAttribute('aria-pressed')).toBe('true');
   expect(harness.viewer.setThemingColor.mock.calls).toEqual([
-    [5, harness.colors.Furniture, harness.model],
-    [6, harness.colors.Furniture, harness.model],
+    [5, harness.colors.Furniture, harness.model, true],
+    [6, harness.colors.Furniture, harness.model, true],
   ]);
 });
 
@@ -175,10 +175,10 @@ test('turning one overlapping category off preserves and reapplies the other act
   expect(findButton(harness, 'Furniture').state).toBe('inactive');
   expect(findButton(harness, 'Doors').state).toBe('active');
   expect(harness.viewer.setThemingColor.mock.calls).toEqual([
-    [1, null, harness.model],
-    [2, null, harness.model],
-    [2, harness.colors.Doors, harness.model],
-    [3, harness.colors.Doors, harness.model],
+    [1, null, harness.model, true],
+    [2, null, harness.model, true],
+    [2, harness.colors.Doors, harness.model, true],
+    [3, harness.colors.Doors, harness.model, true],
   ]);
   expect(harness.viewer.clearThemingColors).not.toHaveBeenCalled();
 });
@@ -234,9 +234,9 @@ test('reset clears all feature-owned theming and makes every control unavailable
   harness.controller.reset();
 
   expect(harness.viewer.setThemingColor.mock.calls).toEqual([
-    [1, null, harness.model],
-    [2, null, harness.model],
-    [3, null, harness.model],
+    [1, null, harness.model, true],
+    [2, null, harness.model, true],
+    [3, null, harness.model, true],
   ]);
   expect(harness.controls[0].controls.every((control) => control.state === 'disabled')).toBe(true);
   expect(harness.controller.getSnapshot().categories).toEqual({
@@ -259,7 +259,7 @@ test('model replacement retains one toolbar but clears old ids before accepting 
 
   expect(harness.controls).toHaveLength(1);
   expect(harness.viewer.setThemingColor.mock.calls).toEqual([
-    [1, null, harness.model],
+    [1, null, harness.model, true],
   ]);
   expect(harness.controls[0].controls.every((control) => control.state === 'disabled')).toBe(true);
 
@@ -267,7 +267,7 @@ test('model replacement retains one toolbar but clears old ids before accepting 
   harness.controller.setCategoryReady('Furniture', [10]);
   findButton(harness, 'Furniture').onClick();
   expect(harness.viewer.setThemingColor.mock.calls).toEqual([
-    [10, harness.colors.Furniture, replacementModel],
+    [10, harness.colors.Furniture, replacementModel, true],
   ]);
 });
 
@@ -297,6 +297,7 @@ test('model replacement disables stale controls and reports a safe error when co
     10,
     harness.colors.Furniture,
     replacementModel,
+    true,
   );
 });
 
@@ -335,6 +336,6 @@ test('dispose is idempotent, removes native ownership/listeners, and makes stale
   expect(harness.viewer.removeEventListener).toHaveBeenCalledTimes(1);
   expect(harness.toolbar.removeControl).toHaveBeenCalledTimes(1);
   expect(harness.viewer.setThemingColor.mock.calls).toEqual([
-    [9, null, harness.model],
+    [9, null, harness.model, true],
   ]);
 });
