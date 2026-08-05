@@ -1,18 +1,10 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { afterEach, expect, test, vi } from 'vitest';
 
-const subjectPath = path.resolve(process.cwd(), 'src/features/aps/api/configuration.js');
-const subject = existsSync(subjectPath)
-  ? await import(/* @vite-ignore */ subjectPath)
-  : {
-      getApsConfiguration: async () => undefined,
-      saveApsConfiguration: async () => undefined,
-    };
-
-const axiosPath = path.resolve(process.cwd(), 'src/api/axiosInstance.js');
-const { default: axiosInstance } = await import(/* @vite-ignore */ axiosPath);
-const { getApsConfiguration, saveApsConfiguration } = subject;
+import axiosInstance from '../api/axiosInstance';
+import {
+  getApsConfiguration,
+  saveApsConfiguration,
+} from '../features/aps/api/configuration';
 
 afterEach(() => vi.restoreAllMocks());
 

@@ -1,28 +1,21 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 
+import axiosInstance from '../api/axiosInstance';
+import { AuthProvider } from '../context/AuthContext';
+import ApsSettingsPanel from '../features/aps/settings/ApsSettingsPanel';
+import { createApsSettingsController } from '../features/aps/settings/createApsSettingsController';
+import HomePage from '../pages/HomePage';
 import { createDeferred } from './fixtures/viewerDoubles';
-
-const controllerPath = path.resolve(
-  process.cwd(),
-  'src/features/aps/settings/createApsSettingsController.js',
-);
-const panelPath = path.resolve(process.cwd(), 'src/features/aps/settings/ApsSettingsPanel.jsx');
-const controllerSubject = existsSync(controllerPath)
-  ? await import(/* @vite-ignore */ controllerPath)
-  : { createApsSettingsController: () => null };
-const panelSubject = existsSync(panelPath)
-  ? await import(/* @vite-ignore */ panelPath)
-  : { default: () => null };
-
-const { createApsSettingsController } = controllerSubject;
-const { default: ApsSettingsPanel } = panelSubject;
 const context = Object.freeze({ userId: 'user-a', workspaceId: 'workspace-a' });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+  localStorage.clear();
+});
 
 function renderPanel(api) {
   const lifecycleCommands = [];
@@ -149,4 +142,56 @@ test('clears the submitted secret only after successful durable save and announc
   expect(screen.getByRole('status').textContent).toContain(
     'APS settings saved. Preparing the configured model with the updated credentials.',
   );
+});
+
+test('integrates settings into the authenticated home while preserving the existing shell', async () => {
+  localStorage.setItem('token', 'synthetic-application-token');
+  localStorage.setItem('user', JSON.stringify({
+    id: 'user-a',
+    name: 'Jane Doe',
+    email: 'jane@example.com',
+  }));
+  vi.spyOn(axiosInstance, 'get').mockResolvedValue({
+    data: { configured: false, configuration: null },
+  });
+
+  render(
+    <MemoryRouter
+      initialEntries={['/home']}
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
+      <AuthProvider>
+        <HomePage />
+      </AuthProvider>
+    </MemoryRouter>,
+  );
+
+  expect(screen.getByRole('banner')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Dashboard' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'User menu' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: /Welcome, Jane Doe/ })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'APS model settings' })).toBeTruthy();
+});
+
+test('keeps the authenticated shell usable when account context is unavailable', () => {
+  localStorage.setItem('token', 'synthetic-application-token');
+  const get = vi.spyOn(axiosInstance, 'get');
+
+  render(
+    <MemoryRouter
+      initialEntries={['/home']}
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
+      <AuthProvider>
+        <HomePage />
+      </AuthProvider>
+    </MemoryRouter>,
+  );
+
+  expect(screen.getByRole('banner')).toBeTruthy();
+  expect(screen.getByRole('link', { name: 'Dashboard' })).toBeTruthy();
+  expect(screen.getByText(
+    'Your account details could not be loaded. Sign out and sign in again before configuring APS.',
+  )).toBeTruthy();
+  expect(get).not.toHaveBeenCalled();
 });

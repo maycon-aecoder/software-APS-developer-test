@@ -1,40 +1,7 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { expect, test, vi } from 'vitest';
 
+import { createApsSettingsController } from '../features/aps/settings/createApsSettingsController';
 import { createDeferred } from './fixtures/viewerDoubles';
-
-const subjectPath = path.resolve(
-  process.cwd(),
-  'src/features/aps/settings/createApsSettingsController.js',
-);
-const subject = existsSync(subjectPath)
-  ? await import(/* @vite-ignore */ subjectPath)
-  : {
-      createApsSettingsController: () => ({
-        activateContext() {},
-        clearContext() {},
-        getState: () => ({
-          phase: 'unavailable',
-          attempted: { clientId: '', clientSecret: '', modelUrn: '' },
-          committed: null,
-          fieldErrors: {},
-          generations: {
-            configuration: 0,
-            authentication: 0,
-            runtime: 0,
-            model: 0,
-            analysis: 0,
-          },
-        }),
-        retryRead() {},
-        save: async () => false,
-        subscribe: () => () => {},
-        updateField() {},
-      }),
-    };
-
-const { createApsSettingsController } = subject;
 
 const contextA = Object.freeze({ userId: 'user-a', workspaceId: 'workspace-a' });
 const contextB = Object.freeze({ userId: 'user-b', workspaceId: 'workspace-b' });
@@ -395,4 +362,40 @@ test('fails closed when a save response has an unrecognized lifecycle classifica
     message: 'The saved APS settings response could not be verified. Reload the page and try again.',
   });
   expect(harness.lifecycleCommands).toEqual([]);
+});
+
+test('retains and emits only whitelisted non-secret configuration fields', async () => {
+  const harness = createHarness({
+    getConfiguration: vi.fn().mockResolvedValue({
+      configured: true,
+      configuration: {
+        ...savedConfiguration,
+        clientSecret: 'must-not-enter-browser-state',
+        accessToken: 'must-not-enter-browser-state',
+        secretEnvelope: { ciphertext: 'must-not-enter-browser-state' },
+      },
+    }),
+  });
+
+  harness.controller.activateContext(contextA);
+  await flushPromises();
+
+  expect(harness.controller.getState().committed).toEqual(savedConfiguration);
+  expect(harness.lifecycleCommands[0].configuration).toEqual(savedConfiguration);
+
+  harness.api.saveConfiguration.mockResolvedValueOnce({
+    configured: true,
+    configuration: {
+      ...savedConfiguration,
+      clientSecret: 'must-not-enter-browser-state',
+      accessToken: 'must-not-enter-browser-state',
+    },
+    changeType: 'urn-only',
+  });
+  await harness.controller.save();
+
+  expect(harness.controller.getState().committed).toEqual(savedConfiguration);
+  expect(harness.lifecycleCommands[1].configuration).toEqual(savedConfiguration);
+  expect(JSON.stringify(harness.controller.getState())).not.toContain('must-not-enter-browser-state');
+  expect(JSON.stringify(harness.lifecycleCommands)).not.toContain('must-not-enter-browser-state');
 });

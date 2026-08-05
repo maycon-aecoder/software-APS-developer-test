@@ -1,10 +1,23 @@
-import React from 'react';
+import React, { useId, useMemo } from 'react';
 import Topbar from '../components/Topbar';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
+import { getApsConfiguration, saveApsConfiguration } from '../features/aps/api/configuration';
+import ApsSettingsPanel from '../features/aps/settings/ApsSettingsPanel';
+import { createApsSettingsController } from '../features/aps/settings/createApsSettingsController';
 
 const HomePage = () => {
   const { user } = useAuth();
+  const workspaceId = useId();
+  const settingsController = useMemo(
+    () => createApsSettingsController({
+      api: {
+        getConfiguration: getApsConfiguration,
+        saveConfiguration: saveApsConfiguration,
+      },
+    }),
+    [],
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -18,29 +31,19 @@ const HomePage = () => {
             Welcome, {user?.name ?? 'User'} 👋
           </h1>
 
-          {/* Placeholder content card */}
-          <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-12 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-              <svg
-                className="w-8 h-8 text-blue-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold text-gray-700 mb-2">Feature placeholder</h2>
-            <p className="text-sm text-gray-400 max-w-xs">
-              Implement your feature here. This area is intentionally left empty as part of the
-              technical assessment.
-            </p>
-          </div>
+          {user?.id ? (
+            <ApsSettingsPanel
+              controller={settingsController}
+              context={{ userId: user.id, workspaceId }}
+            />
+          ) : (
+            <section className="rounded-2xl border border-red-200 bg-white p-6 shadow-sm">
+              <p aria-live="assertive" className="text-sm text-red-700">
+                Your account details could not be loaded. Sign out and sign in again before
+                configuring APS.
+              </p>
+            </section>
+          )}
         </div>
       </main>
     </div>
