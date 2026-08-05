@@ -1,5 +1,4 @@
 import React, { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import ApsQuantityReport from '../quantity/ApsQuantityReport';
 
 export default function ApsViewerHost({ coordinator }) {
   const hostRef = useRef(null);
@@ -50,7 +49,6 @@ export default function ApsViewerHost({ coordinator }) {
           </button>
         )}
       </div>
-      <ApsQuantityReport quantities={state.quantities} />
     </section>
   );
 }

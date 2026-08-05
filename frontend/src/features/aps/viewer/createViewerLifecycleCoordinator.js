@@ -24,6 +24,8 @@ const CATEGORY_ANALYSIS_MESSAGE =
   'Some model categories could not be analyzed. Retry loading the model or verify its structure.';
 const CATEGORY_CONTROLS_MESSAGE =
   'The model is ready, but category controls could not be prepared. Retry loading the model.';
+const QUANTITY_PANEL_MESSAGE =
+  'The model is ready, but model quantities could not be displayed. Retry loading the model.';
 const SUPPORTED_CATEGORY_RESULTS = new Set(['Furniture', 'Walls', 'Doors', 'Windows']);
 const SUPPORTED_QUANTITY_RESULTS = new Set(['Doors', 'Windows']);
 const TOOLBAR_CATEGORY_RESULTS = new Set(['Furniture', 'Walls', 'Doors']);
@@ -48,11 +50,37 @@ function sanitizeQuantityResult(result) {
   }
   if (result.status !== 'ready') return null;
   const areaStatus = result.area?.status;
+  const elements = Array.isArray(result.elements)
+    ? result.elements.map((element) => {
+      if (typeof element?.name !== 'string' || !element.name.trim()) return null;
+      if (element.area?.status === 'unavailable') {
+        return { area: { status: 'unavailable' }, name: element.name.trim() };
+      }
+      if (
+        element.area?.status !== 'available'
+        || typeof element.area.value !== 'number'
+        || !Number.isFinite(element.area.value)
+        || element.area.value < 0
+        || !(element.area.unit === null || typeof element.area.unit === 'string')
+      ) return null;
+      return {
+        area: {
+          status: 'available',
+          unit: element.area.unit,
+          value: element.area.value,
+        },
+        name: element.name.trim(),
+      };
+    })
+    : null;
+  if (!elements || elements.some((element) => element === null)) return null;
+  if (areaStatus !== 'failed' && elements.length !== result.count) return null;
   if (['unavailable', 'failed'].includes(areaStatus)) {
     return {
       area: { status: areaStatus, total: null, unit: null },
       category: result.category,
       count: result.count,
+      elements,
       status: 'ready',
     };
   }
@@ -71,6 +99,7 @@ function sanitizeQuantityResult(result) {
     },
     category: result.category,
     count: result.count,
+    elements,
     status: 'ready',
   };
 }
@@ -157,6 +186,7 @@ export function createViewerLifecycleCoordinator({
   createQuantityAnalysis,
   createToolbarController,
   loadAssets,
+  loadQuantityPanelExtension,
   tokenProvider,
   onStateChange = () => {},
   logger = console,
@@ -178,6 +208,7 @@ export function createViewerLifecycleCoordinator({
   let model = null;
   let modelAnalysis = null;
   let quantityAnalysis = null;
+  let quantityPanelExtension = null;
   let toolbarController = null;
   const subscribers = new Set();
 
@@ -213,6 +244,13 @@ export function createViewerLifecycleCoordinator({
     modelAnalysis = null;
     quantityAnalysis = null;
     try {
+      quantityPanelExtension?.reset();
+    } catch {
+      logger.error('APS quantity panel reset failed', {
+        code: 'APS_QUANTITY_PANEL_RESET_FAILED',
+      });
+    }
+    try {
       ownedQuantityAnalysis?.dispose();
     } catch {
       logger.error('APS quantity analysis cleanup failed', {
@@ -228,6 +266,67 @@ export function createViewerLifecycleCoordinator({
       toolbarController?.setModel(null);
     } catch {
       logCategoryCleanupFailure();
+    }
+  }
+
+  function reportQuantityPanelFailure(stage) {
+    logger.error('APS quantity panel failed', {
+      code: 'APS_QUANTITY_PANEL_FAILED',
+      stage,
+    });
+    publish({ ...snapshot, message: QUANTITY_PANEL_MESSAGE, tone: 'error' });
+  }
+
+  function updateQuantityPanel(result) {
+    if (!quantityPanelExtension) return;
+    try {
+      quantityPanelExtension.setQuantityResult(result);
+    } catch {
+      reportQuantityPanelFailure('update');
+    }
+  }
+
+  function updateQuantityPanelCategory(category, dbIds) {
+    if (!quantityPanelExtension) return;
+    try {
+      quantityPanelExtension.setCategoryDbIds(category, dbIds);
+    } catch {
+      reportQuantityPanelFailure('category-update');
+    }
+  }
+
+  async function ensureQuantityPanelExtension() {
+    if (quantityPanelExtension || !loadQuantityPanelExtension) return true;
+    let candidate = null;
+    try {
+      candidate = await loadQuantityPanelExtension({
+        viewer,
+        viewing,
+        onFeedback: (feedback) => {
+          if (candidate !== quantityPanelExtension || typeof feedback?.message !== 'string') return;
+          publish({
+            ...snapshot,
+            message: feedback.message,
+            tone: feedback.kind === 'error' ? 'error' : 'info',
+          });
+        },
+      });
+      if (
+        !candidate
+        || typeof candidate.reset !== 'function'
+        || typeof candidate.setCategoryDbIds !== 'function'
+        || typeof candidate.setQuantityResult !== 'function'
+      ) {
+        throw new TypeError('Invalid quantity extension.');
+      }
+      quantityPanelExtension = candidate;
+      return true;
+    } catch {
+      logger.error('APS quantity panel failed', {
+        code: 'APS_QUANTITY_PANEL_FAILED',
+        stage: 'setup',
+      });
+      return false;
     }
   }
 
@@ -297,6 +396,12 @@ export function createViewerLifecycleCoordinator({
         status: 'ready',
       }
       : { category: result.category, status: 'failed' };
+    if (SUPPORTED_QUANTITY_RESULTS.has(safeResult.category)) {
+      updateQuantityPanelCategory(
+        safeResult.category,
+        safeResult.status === 'ready' ? safeResult.dbIds : [],
+      );
+    }
     if (TOOLBAR_CATEGORY_RESULTS.has(result.category)) {
       try {
         if (safeResult.status === 'ready') {
@@ -340,6 +445,7 @@ export function createViewerLifecycleCoordinator({
           ...snapshot,
           quantities: { ...(snapshot.quantities ?? {}), [safeResult.category]: fallback },
         });
+        updateQuantityPanel(fallback);
       };
       let completion;
       try {
@@ -396,6 +502,7 @@ export function createViewerLifecycleCoordinator({
                 [result.category]: fallback,
               },
             });
+            updateQuantityPanel(fallback);
             return;
           }
           publish({
@@ -405,6 +512,7 @@ export function createViewerLifecycleCoordinator({
               [safeResult.category]: safeResult,
             },
           });
+          updateQuantityPanel(safeResult);
         },
       });
       quantityAnalysis = analysis;
@@ -428,6 +536,8 @@ export function createViewerLifecycleCoordinator({
           Windows: { category: 'Windows', count: null, status: 'failed' },
         },
       });
+      updateQuantityPanel({ category: 'Doors', count: null, status: 'failed' });
+      updateQuantityPanel({ category: 'Windows', count: null, status: 'failed' });
     }
   }
 
@@ -477,6 +587,7 @@ export function createViewerLifecycleCoordinator({
     let cleanupFailed = false;
 
     resetModelExperience();
+    quantityPanelExtension = null;
     disposeToolbar();
 
     try {
@@ -566,6 +677,7 @@ export function createViewerLifecycleCoordinator({
     }
     if (!isOperationCurrent(command)) return;
     let toolbarReady = ensureToolbarController();
+    const quantityPanelReady = await ensureQuantityPanelExtension();
 
     const documentObject = await loadDocument(
       viewing,
@@ -595,6 +707,9 @@ export function createViewerLifecycleCoordinator({
     });
     if (!toolbarReady) {
       publish({ ...snapshot, message: CATEGORY_CONTROLS_MESSAGE, tone: 'error' });
+    }
+    if (!quantityPanelReady) {
+      publish({ ...snapshot, message: QUANTITY_PANEL_MESSAGE, tone: 'error' });
     }
     startModelAnalysis(command);
   }

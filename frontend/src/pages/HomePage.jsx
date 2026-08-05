@@ -10,6 +10,7 @@ import { createApsSettingsController } from '../features/aps/settings/createApsS
 import ApsViewerHost from '../features/aps/viewer/ApsViewerHost';
 import { createCategoryToolbarController } from '../features/aps/viewer/createCategoryToolbarController';
 import { createViewerLifecycleCoordinator } from '../features/aps/viewer/createViewerLifecycleCoordinator';
+import { loadQuantityPanelExtension } from '../features/aps/quantity/registerQuantityPanelExtension';
 import { createViewerTokenProvider } from '../features/aps/viewer/createViewerTokenProvider';
 import { loadViewerAssets } from '../features/aps/viewer/loadViewerAssets';
 
@@ -36,6 +37,7 @@ const HomePage = () => {
         model: null,
       }),
       loadAssets: loadViewerAssets,
+      loadQuantityPanelExtension,
       tokenProvider: createViewerTokenProvider(),
     }),
     [],
