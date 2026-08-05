@@ -1,15 +1,10 @@
 const assert = require('node:assert/strict');
-const { existsSync } = require('node:fs');
-const path = require('node:path');
 const test = require('node:test');
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const request = require('supertest');
 
-const routesPath = path.join(__dirname, '../../src/routes/aps.js');
-const { createApsRouter } = existsSync(routesPath)
-  ? require(routesPath)
-  : { createApsRouter: () => express.Router() };
+const { createApsRouter } = require('../../src/routes/aps');
 
 const productionApp = require('../../src/app');
 
@@ -198,11 +193,11 @@ test('does not misrepresent a configuration read failure as first-time state', a
 });
 
 const successfulSaveCases = [
-  ['credential replacement', 'credential-replacement'],
-  ['URN-only update', 'urn-only'],
+  ['credential replacement', 'credential-replacement', 'synthetic-client-secret'],
+  ['URN-only update', 'urn-only', ''],
 ];
 
-for (const [label, changeType] of successfulSaveCases) {
+for (const [label, changeType, clientSecret] of successfulSaveCases) {
   test(`returns a safe authoritative response for ${label}`, async () => {
     const controlled = createServiceDouble({
       saveResult: {
@@ -223,7 +218,7 @@ for (const [label, changeType] of successfulSaveCases) {
       .send({
         userId: otherUserId,
         clientId: 'synthetic-client-id',
-        clientSecret: 'synthetic-client-secret',
+        clientSecret,
         modelUrn: 'dGVzdC1tb2RlbA',
         unexpected: 'must-not-reach-service',
       });
@@ -243,7 +238,7 @@ for (const [label, changeType] of successfulSaveCases) {
       userId,
       {
         clientId: 'synthetic-client-id',
-        clientSecret: 'synthetic-client-secret',
+        clientSecret,
         modelUrn: 'dGVzdC1tb2RlbA',
       },
     ]]);
@@ -261,6 +256,13 @@ const validationCases = [
     'Check the APS Client Secret and try again.',
     {
       clientSecret: 'Enter the APS Client Secret when setting up APS or changing the Client ID.',
+    },
+  ],
+  [
+    'APS_CLIENT_SECRET_INVALID',
+    'Check the APS Client Secret and try again.',
+    {
+      clientSecret: 'Enter the APS Client Secret as text, or leave it blank to keep the saved secret.',
     },
   ],
   [
@@ -346,9 +348,11 @@ for (const [code, status, message] of operationalFailureCases) {
 
 test('maps an unclassified failure to a safe actionable internal error', async () => {
   const controlled = createServiceDouble();
-  controlled.rejectSave(new Error(
+  const unknownError = new Error(
     'Synthetic unknown cause containing synthetic-client-secret and ciphertext',
-  ));
+  );
+  unknownError.code = 'toString';
+  controlled.rejectSave(unknownError);
   const logging = createLoggerDouble();
   const app = createTestApp(controlled.service, logging.logger);
 

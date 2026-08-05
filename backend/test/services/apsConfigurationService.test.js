@@ -209,6 +209,30 @@ test('classifies any submitted replacement secret as credential replacement', as
   assert.equal(result.changeType, 'credential-replacement');
 });
 
+test('rejects a non-text Client Secret instead of silently retaining the stored secret', async () => {
+  const initialDocument = {
+    userId,
+    clientId: 'synthetic-client-id',
+    modelUrn: 'b2xkLW1vZGVs',
+    secretEnvelope: existingEnvelope,
+  };
+  const { controlledModel, service } = createService({ initialDocument });
+
+  await assert.rejects(
+    service.saveConfiguration(userId, {
+      clientId: 'synthetic-client-id',
+      clientSecret: null,
+      modelUrn: 'bmV3LW1vZGVs',
+    }),
+    (error) => error.code === 'APS_CLIENT_SECRET_INVALID',
+  );
+  assert.deepEqual(controlledModel.getState(), initialDocument);
+  assert.equal(
+    controlledModel.calls.some(({ operation }) => operation === 'findOneAndUpdate'),
+    false,
+  );
+});
+
 const invalidSecretRuleCases = [
   ['a first save without a secret', null, 'synthetic-client-id'],
   [

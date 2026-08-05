@@ -27,6 +27,7 @@ for (const [label, input, expected] of acceptedCases) {
 }
 
 const rejectedCases = [
+  ['missing input', undefined],
   ['empty input', ''],
   ['whitespace-only input', ' \t\n '],
   ['prefix without a payload', 'urn:'],
@@ -46,6 +47,7 @@ for (const [label, input] of rejectedCases) {
   test(`rejects ${label}`, () => {
     assert.throws(
       () => canonicalizeModelUrn(input),
+      (error) => error.code === 'INVALID_MODEL_URN',
       `Expected ${label} to be rejected as a noncanonical Model URN`,
     );
   });

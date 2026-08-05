@@ -10,6 +10,10 @@ function createInvalidModelUrnError() {
 }
 
 function canonicalizeModelUrn(input) {
+  if (typeof input !== 'string') {
+    throw createInvalidModelUrnError();
+  }
+
   const trimmedInput = input.trim();
   const payload = trimmedInput.startsWith(VIEWER_URN_PREFIX)
     ? trimmedInput.slice(VIEWER_URN_PREFIX.length)

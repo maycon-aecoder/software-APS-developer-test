@@ -84,6 +84,12 @@ function createApsConfigurationService({
       APS_CONFIGURATION_PROJECTIONS.service,
     );
     const submittedSecret = input?.clientSecret;
+    if (submittedSecret !== undefined && typeof submittedSecret !== 'string') {
+      throw createConfigurationError(
+        'APS_CLIENT_SECRET_INVALID',
+        'APS Client Secret must be text or blank.',
+      );
+    }
     const hasSubmittedSecret =
       typeof submittedSecret === 'string' && submittedSecret.trim().length > 0;
 
@@ -110,6 +116,10 @@ function createApsConfigurationService({
       modelUrn,
       secretEnvelope,
     };
+    const changeType =
+      !existing || existing.clientId !== clientId || hasSubmittedSecret
+        ? 'credential-replacement'
+        : 'urn-only';
 
     try {
       const saved = await ApsConfiguration.findOneAndUpdate(
@@ -123,7 +133,10 @@ function createApsConfigurationService({
           projection: APS_CONFIGURATION_PROJECTIONS.safe,
         },
       );
-      return mapSafeConfiguration(saved);
+      return {
+        configuration: mapSafeConfiguration(saved),
+        changeType,
+      };
     } catch (error) {
       if (error?.code === 11000) {
         throw createConfigurationError(
