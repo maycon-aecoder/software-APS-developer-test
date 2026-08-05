@@ -145,8 +145,15 @@ export function createCategoryToolbarController({
       event.preventDefault();
       button.onClick();
     };
+    const handlePointerClick = (event) => {
+      if (event.detail > 0) button.container.blur();
+    };
     button.container.addEventListener('keydown', handleKeyDown);
-    button.releaseKeyboard = () => button.container.removeEventListener('keydown', handleKeyDown);
+    button.container.addEventListener('click', handlePointerClick);
+    button.releaseInteractions = () => {
+      button.container.removeEventListener('keydown', handleKeyDown);
+      button.container.removeEventListener('click', handlePointerClick);
+    };
     buttons.set(category, button);
     syncButton(category);
     return button;
@@ -212,7 +219,7 @@ export function createCategoryToolbarController({
     onFeedback({
       category,
       kind: 'error',
-      message: `${category} could not be analyzed. Retry loading the model or verify its properties.`,
+      message: `${category} could not be analyzed. Retry loading the model or verify its structure.`,
     });
   }
 
@@ -245,7 +252,7 @@ export function createCategoryToolbarController({
     removeToolbarListener();
     for (const button of buttons.values()) {
       try {
-        button.releaseKeyboard?.();
+        button.releaseInteractions?.();
       } catch {
         reportControlsFailure();
       }

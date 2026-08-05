@@ -22,6 +22,7 @@ function createHarness({ toolbarInitiallyAvailable = true } = {}) {
     this.setToolTip = vi.fn((tooltip) => {
       this.tooltip = tooltip;
     });
+    this.container.addEventListener('click', (event) => this.onClick?.(event));
   }
   Button.State = {
     ACTIVE: 'active',
@@ -148,6 +149,8 @@ test('themes a ready category recursively with its distinct color and active mod
   mountAvailableToolbar(harness);
   harness.controller.setCategoryReady('Furniture', [5, 6, 5]);
   const furniture = findButton(harness, 'Furniture');
+  document.body.append(furniture.container);
+  furniture.container.focus();
 
   expect(furniture.state).toBe('inactive');
   expect(furniture.container.getAttribute('aria-disabled')).toBe('false');
@@ -155,6 +158,7 @@ test('themes a ready category recursively with its distinct color and active mod
 
   expect(furniture.state).toBe('active');
   expect(furniture.container.getAttribute('aria-pressed')).toBe('true');
+  expect(document.activeElement).toBe(furniture.container);
   expect(harness.viewer.setThemingColor.mock.calls).toEqual([
     [5, harness.colors.Furniture, harness.model, true],
     [6, harness.colors.Furniture, harness.model, true],
@@ -181,6 +185,27 @@ test('turning one overlapping category off preserves and reapplies the other act
     [3, harness.colors.Doors, harness.model, true],
   ]);
   expect(harness.viewer.clearThemingColors).not.toHaveBeenCalled();
+});
+
+test('a second pointer click removes theming and restores the unfocused inactive button', () => {
+  const harness = createHarness();
+  mountAvailableToolbar(harness);
+  harness.controller.setCategoryReady('Furniture', [5]);
+  const furniture = findButton(harness, 'Furniture');
+  document.body.append(furniture.container);
+
+  furniture.container.focus();
+  furniture.container.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+  furniture.container.focus();
+  furniture.container.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+
+  expect(furniture.state).toBe('inactive');
+  expect(furniture.container.getAttribute('aria-pressed')).toBe('false');
+  expect(document.activeElement).not.toBe(furniture.container);
+  expect(harness.viewer.setThemingColor.mock.calls).toEqual([
+    [5, harness.colors.Furniture, harness.model, true],
+    [5, null, harness.model, true],
+  ]);
 });
 
 test('reports zero matches distinctly while preserving other active controls and theming', () => {
@@ -218,7 +243,7 @@ test('isolates one category-analysis failure and keeps resolved controls usable'
   expect(harness.feedback.at(-1)).toEqual({
     category: 'Doors',
     kind: 'error',
-    message: 'Doors could not be analyzed. Retry loading the model or verify its properties.',
+    message: 'Doors could not be analyzed. Retry loading the model or verify its structure.',
   });
 });
 
