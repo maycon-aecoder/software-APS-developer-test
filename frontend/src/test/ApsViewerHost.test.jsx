@@ -53,7 +53,7 @@ test('announces a category-analysis failure and offers a keyboard-operable retry
   const coordinator = createCoordinator({
     phase: 'ready',
     tone: 'error',
-    message: 'Doors could not be analyzed. Retry loading the model or verify its properties.',
+    message: 'Doors could not be analyzed. Retry loading the model or verify its structure.',
   });
   render(<ApsViewerHost coordinator={coordinator} />);
 

@@ -21,7 +21,7 @@ const MODEL_FAILURE_MESSAGE =
 const TOKEN_TEMPORARY_MESSAGE =
   'APS access is temporarily unavailable. Check your connection and retry loading the model.';
 const CATEGORY_ANALYSIS_MESSAGE =
-  'Some model categories could not be analyzed. Retry loading the model or verify its properties.';
+  'Some model categories could not be analyzed. Retry loading the model or verify its structure.';
 const CATEGORY_CONTROLS_MESSAGE =
   'The model is ready, but category controls could not be prepared. Retry loading the model.';
 const SUPPORTED_CATEGORY_RESULTS = new Set(['Furniture', 'Walls', 'Doors', 'Windows']);

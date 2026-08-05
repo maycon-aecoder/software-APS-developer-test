@@ -3,110 +3,203 @@ import { resolveCategoryInstances } from '../features/aps/analysis/categoryResol
 import { readModelCategoryCandidates } from '../features/aps/analysis/modelCategoryAdapter';
 
 function createModel({
-  batchSizeEvidence = [],
-  failProperties = false,
   children = new Map([
-    [1, [2, 3, 2]],
+    [1, [2, 3]],
     [2, [4]],
     [3, []],
     [4, [5]],
     [5, []],
   ]),
-  fragments = new Map([
-    [2, [200]],
-    [4, [40]],
-    [5, [50]],
-  ]),
-  properties = new Map([
-    [4, [{ displayName: 'Category', displayValue: 'Revit Doors' }]],
-    [5, [{ displayName: 'Category', displayValue: 'Doors' }]],
-  ]),
+  failTree = false,
   names = new Map([
     [1, 'Model'],
-    [2, 'Doors (2)'],
+    [2, 'Doors (1)'],
     [3, 'Organization'],
-    [4, 'Door instance'],
-    [5, 'Nested door geometry'],
+    [4, 'Door type'],
+    [5, 'Door leaf'],
   ]),
-  propertyResult,
+  stopOnTruthyChildCallback = false,
 } = {}) {
+  const enumeratedIds = [];
   const tree = {
     enumNodeChildren(dbId, callback, recursive) {
+      enumeratedIds.push(dbId);
       const direct = children.get(dbId) ?? [];
       for (const child of direct) {
-        callback(child);
+        const shouldStop = callback(child);
+        if (stopOnTruthyChildCallback && shouldStop) break;
         if (recursive) this.enumNodeChildren(child, callback, true);
       }
-    },
-    enumNodeFragments(dbId, callback, recursive) {
-      expect(recursive).toBe(false);
-      for (const fragmentId of fragments.get(dbId) ?? []) callback(fragmentId);
     },
     getNodeName: (dbId) => names.get(dbId),
     getRootId: () => 1,
   };
   return {
-    getBulkProperties2: vi.fn((dbIds, options, onSuccess, onFailure) => {
-      batchSizeEvidence.push(dbIds);
-      expect(options).toEqual({ ignoreHidden: true, propFilter: ['Category'] });
-      if (failProperties) {
-        onFailure('raw-property-error');
-        return;
-      }
-      onSuccess(propertyResult ?? dbIds.map((dbId) => ({
-        dbId,
-        properties: properties.get(dbId) ?? [],
-      })));
+    enumeratedIds,
+    getBulkProperties2: vi.fn(() => {
+      throw new Error('Category properties must not be read.');
     }),
-    getObjectTree: vi.fn((onSuccess) => onSuccess(tree)),
+    getObjectTree: vi.fn((onSuccess, onFailure) => {
+      if (failTree) onFailure('raw-tree-error');
+      else onSuccess(tree);
+    }),
   };
 }
 
-test('selects the first renderable descendant below a shallow Revit category without a leaf assumption', async () => {
+test('collects leaf elements below an exact root category without property reads', async () => {
   const model = createModel();
 
-  await expect(readModelCategoryCandidates(model, { batchSize: 2 })).resolves.toEqual([
+  await expect(readModelCategoryCandidates(model)).resolves.toEqual([
     {
-      dbId: 4,
-      categoryValues: ['Revit Doors'],
-      childCount: 1,
+      dbId: 5,
+      categoryValues: ['Doors'],
+      childCount: 0,
       classification: 'instance',
       expectedCategory: 'Doors',
-      parentId: 2,
+      parentId: 4,
     },
   ]);
+  expect(model.getBulkProperties2).not.toHaveBeenCalled();
 });
 
-test('uses bounded property batches and deduplicates tree callback ids', async () => {
-  const batches = [];
-  const model = createModel({ batchSizeEvidence: batches });
-
-  await readModelCategoryCandidates(model, { batchSize: 2 });
-
-  expect(batches).toEqual([[4]]);
-  expect(batches.every((batch) => batch.length <= 2)).toBe(true);
-});
-
-test('maps a public property read failure to a stable category-analysis failure', async () => {
-  const model = createModel({ failProperties: true });
-
-  await expect(readModelCategoryCandidates(model, { batchSize: 2 })).rejects.toMatchObject({
-    code: 'APS_CATEGORY_ANALYSIS_FAILED',
+test('deduplicates repeated tree callback ids', async () => {
+  const model = createModel({
+    children: new Map([
+      [1, [2, 2]],
+      [2, [4, 4]],
+      [4, []],
+    ]),
+    names: new Map([
+      [1, 'Model'],
+      [2, 'Doors'],
+      [4, 'Door leaf'],
+    ]),
   });
+
+  const candidates = await readModelCategoryCandidates(model);
+
+  expect(resolveCategoryInstances(candidates, 'Doors')).toEqual([4]);
 });
 
-test('rejects a malformed successful property payload instead of reporting zero matches', async () => {
-  const model = createModel({ propertyResult: { results: [] } });
+test('enumerates every root sibling when the Viewer stops after a truthy callback result', async () => {
+  const model = createModel({
+    children: new Map([
+      [1, [2, 6]],
+      [2, []],
+      [6, [4]],
+      [4, []],
+    ]),
+    names: new Map([
+      [1, 'Model'],
+      [2, 'Floors'],
+      [6, 'Doors (1)'],
+      [4, 'Door leaf'],
+    ]),
+    stopOnTruthyChildCallback: true,
+  });
+
+  const candidates = await readModelCategoryCandidates(model);
+
+  expect(resolveCategoryInstances(candidates, 'Doors')).toEqual([4]);
+});
+
+test('matches a trimmed case-insensitive Revit alias with a structural count suffix', async () => {
+  const model = createModel({
+    names: new Map([
+      [1, 'Model'],
+      [2, '  rEvIt DoOrS (1)  '],
+      [3, 'Organization'],
+      [4, 'Door type'],
+      [5, 'Door leaf'],
+    ]),
+  });
+
+  const candidates = await readModelCategoryCandidates(model);
+
+  expect(resolveCategoryInstances(candidates, 'Doors')).toEqual([5]);
+});
+
+test('collects every recursive leaf and ignores similar unsupported root labels', async () => {
+  const model = createModel({
+    children: new Map([
+      [1, [2, 9]],
+      [2, [3]],
+      [3, [4]],
+      [4, [5, 6]],
+      [5, [7, 8]],
+      [6, []],
+      [7, []],
+      [8, []],
+      [9, [10]],
+      [10, []],
+    ]),
+    names: new Map([
+      [1, 'Model'],
+      [2, 'Walls (3)'],
+      [3, 'Basic Wall'],
+      [4, 'Wall type [100]'],
+      [5, 'Basic Wall [101]'],
+      [6, 'Basic Wall [102]'],
+      [7, 'Nested wall layer'],
+      [8, 'Nested wall profile'],
+      [9, 'Wall Accessories'],
+      [10, 'Wall accessory leaf'],
+    ]),
+  });
+
+  const candidates = await readModelCategoryCandidates(model);
+
+  expect(resolveCategoryInstances(candidates, 'Walls')).toEqual([7, 8, 6]);
+  expect(model.getBulkProperties2).not.toHaveBeenCalled();
+  expect(model.enumeratedIds).not.toContain(9);
+  expect(model.enumeratedIds).not.toContain(10);
+});
+
+test('resolves supported root categories independently', async () => {
+  const model = createModel({
+    children: new Map([
+      [1, [2, 3, 4, 5]],
+      [2, [20]],
+      [3, [30]],
+      [4, [40]],
+      [5, [50]],
+      [20, []],
+      [30, []],
+      [40, []],
+      [50, []],
+    ]),
+    names: new Map([
+      [1, 'Model'],
+      [2, 'Furniture'],
+      [3, 'Walls'],
+      [4, 'Doors'],
+      [5, 'Windows'],
+      [20, 'Furniture leaf'],
+      [30, 'Wall leaf'],
+      [40, 'Door leaf'],
+      [50, 'Window leaf'],
+    ]),
+  });
+
+  const candidates = await readModelCategoryCandidates(model);
+
+  expect(resolveCategoryInstances(candidates, 'Furniture')).toEqual([20]);
+  expect(resolveCategoryInstances(candidates, 'Walls')).toEqual([30]);
+  expect(resolveCategoryInstances(candidates, 'Doors')).toEqual([40]);
+  expect(resolveCategoryInstances(candidates, 'Windows')).toEqual([50]);
+});
+
+test('maps a public object-tree failure to a stable category-analysis failure', async () => {
+  const model = createModel({ failTree: true });
 
   await expect(readModelCategoryCandidates(model)).rejects.toMatchObject({
     code: 'APS_CATEGORY_ANALYSIS_FAILED',
   });
 });
 
-test('fails conservatively when direct instance classification APIs are unavailable', async () => {
+test('fails when required public tree APIs are unavailable', async () => {
   const model = createModel();
   model.getObjectTree = vi.fn((onSuccess) => onSuccess({
-    enumNodeChildren: (_dbId, callback) => callback(2),
     getNodeName: () => 'Doors',
     getRootId: () => 1,
   }));
@@ -116,68 +209,33 @@ test('fails conservatively when direct instance classification APIs are unavaila
   });
 });
 
-test('uses category containers across early organizational levels and stops before nested geometry parts', async () => {
+test('ignores matching category names below the root category level', async () => {
   const model = createModel({
     children: new Map([
-      [1, [7]],
-      [7, [6]],
-      [6, [2, 5]],
-      [2, [3, 4]],
-      [3, []],
+      [1, [2]],
+      [2, [3]],
+      [3, [4]],
       [4, []],
-      [5, []],
-    ]),
-    fragments: new Map([
-      [2, [20]],
-      [3, [30]],
-      [5, [50]],
-    ]),
-    properties: new Map([
-      [1, []],
-      [6, [{ displayName: 'Category', displayValue: 'Doors' }]],
-      [2, [{ displayName: 'Category', displayValue: 'Doors' }]],
-      [3, [{ displayName: 'Category', displayValue: 'Revit Doors' }]],
-      [4, [{ displayName: 'Category', displayValue: 'Doors' }]],
-      [5, [{ displayName: 'Category', displayValue: 'Revit Doors' }]],
     ]),
     names: new Map([
       [1, 'Model'],
-      [7, 'Discipline organization'],
-      [6, 'Doors (2)'],
-      [2, 'Door instance A'],
-      [3, 'Nested door geometry'],
-      [4, 'Door organization'],
-      [5, 'Door instance B'],
+      [2, 'Organization'],
+      [3, 'Doors'],
+      [4, 'Door leaf'],
     ]),
   });
 
-  const candidates = await readModelCategoryCandidates(model);
-
-  expect(resolveCategoryInstances(candidates, 'Doors')).toEqual([2, 5]);
+  await expect(readModelCategoryCandidates(model)).resolves.toEqual([]);
 });
 
-test('fails conservatively when a category subtree and element Category property disagree', async () => {
-  const model = createModel({
-    properties: new Map([
-      [4, [{ displayName: 'Category', displayValue: 'Walls' }]],
-    ]),
-  });
-
-  const candidates = await readModelCategoryCandidates(model);
-
-  expect(() => resolveCategoryInstances(candidates, 'Doors')).toThrow(
-    expect.objectContaining({ code: 'APS_CATEGORY_ANALYSIS_FAILED' }),
-  );
-});
-
-test('does not treat descriptive labels with counts as category containers', async () => {
+test('does not treat descriptive labels with counts as root categories', async () => {
   const model = createModel({
     names: new Map([
       [1, 'Model'],
-      [2, 'Door elements (2)'],
+      [2, 'Door elements (1)'],
       [3, 'Organization'],
-      [4, 'Door instance'],
-      [5, 'Nested door geometry'],
+      [4, 'Door type'],
+      [5, 'Door leaf'],
     ]),
   });
 
@@ -188,10 +246,43 @@ test('fails instead of treating an invalid public tree root as an empty model', 
   const model = createModel();
   model.getObjectTree = vi.fn((onSuccess) => onSuccess({
     enumNodeChildren: vi.fn(),
-    enumNodeFragments: vi.fn(),
     getNodeName: vi.fn(),
     getRootId: () => undefined,
   }));
+
+  await expect(readModelCategoryCandidates(model)).rejects.toMatchObject({
+    code: 'APS_CATEGORY_ANALYSIS_FAILED',
+  });
+});
+
+test('fails safely for a self-referential tree branch', async () => {
+  const model = createModel({
+    children: new Map([
+      [1, [2]],
+      [2, [2]],
+    ]),
+    names: new Map([
+      [1, 'Model'],
+      [2, 'Doors'],
+    ]),
+  });
+
+  await expect(readModelCategoryCandidates(model)).rejects.toMatchObject({
+    code: 'APS_CATEGORY_ANALYSIS_FAILED',
+  });
+});
+
+test('fails safely when the public tree returns a malformed child id', async () => {
+  const model = createModel({
+    children: new Map([
+      [1, [2]],
+      [2, ['invalid-db-id']],
+    ]),
+    names: new Map([
+      [1, 'Model'],
+      [2, 'Doors'],
+    ]),
+  });
 
   await expect(readModelCategoryCandidates(model)).rejects.toMatchObject({
     code: 'APS_CATEGORY_ANALYSIS_FAILED',
