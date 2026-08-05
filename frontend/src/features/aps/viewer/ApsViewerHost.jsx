@@ -15,6 +15,9 @@ export default function ApsViewerHost({ coordinator }) {
     };
   }, [coordinator]);
 
+  const isError = state.phase === 'load-failed' || state.tone === 'error';
+  const isRetryable = state.phase === 'load-failed' || state.tone === 'error';
+
   return (
     <section
       aria-label="3D model viewer"
@@ -27,13 +30,13 @@ export default function ApsViewerHost({ coordinator }) {
       />
       <div className="flex min-h-14 items-center justify-between gap-4 border-t border-gray-200 px-4 py-3">
         <p
-          role={state.phase === 'load-failed' ? 'alert' : 'status'}
-          aria-live={state.phase === 'load-failed' ? 'assertive' : 'polite'}
-          className={`text-sm ${state.phase === 'load-failed' ? 'text-red-700' : 'text-gray-600'}`}
+          role={isError ? 'alert' : 'status'}
+          aria-live={isError ? 'assertive' : 'polite'}
+          className={`text-sm ${isError ? 'text-red-700' : 'text-gray-600'}`}
         >
           {state.message}
         </p>
-        {state.phase === 'load-failed' && (
+        {isRetryable && (
           <button
             type="button"
             onClick={() => void coordinator.retry()}

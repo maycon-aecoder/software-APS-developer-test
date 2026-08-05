@@ -22,11 +22,14 @@ const baseCommand = Object.freeze({
 });
 
 function createHarness({
+  createModelAnalysis,
+  createToolbarController,
   documentLoad,
   documentRoot,
   initializer,
   loadAssets,
   loadDocumentNode,
+  logger,
   shutdown,
   startResult = 0,
 } = {}) {
@@ -104,7 +107,10 @@ function createHarness({
   };
   const states = [];
   const coordinator = createViewerLifecycleCoordinator({
+    createModelAnalysis,
+    createToolbarController,
     loadAssets: loadAssets ?? vi.fn().mockResolvedValue(viewing),
+    logger,
     onStateChange: (state) => states.push(state),
     tokenProvider,
   });
@@ -149,6 +155,167 @@ test('initializes one supported runtime, Viewer, token callback, document, and m
     { keepCurrentModels: false },
   );
   expect(harness.coordinator.getSnapshot()).toMatchObject({ phase: 'ready' });
+});
+
+test('mounts one native toolbar per Viewer and starts one active-model category analysis', async () => {
+  const toolbarController = {
+    dispose: vi.fn(),
+    mount: vi.fn(),
+    setCategoryFailed: vi.fn(),
+    setCategoryReady: vi.fn(),
+    setModel: vi.fn(),
+  };
+  const modelAnalysis = { dispose: vi.fn(), start: vi.fn().mockResolvedValue(undefined) };
+  const createToolbarController = vi.fn(() => toolbarController);
+  const createModelAnalysis = vi.fn(() => modelAnalysis);
+  const harness = createHarness({ createModelAnalysis, createToolbarController });
+
+  await harness.coordinator.execute(command());
+
+  expect(createToolbarController).toHaveBeenCalledTimes(1);
+  expect(createToolbarController).toHaveBeenCalledWith(expect.objectContaining({
+    onFeedback: expect.any(Function),
+    viewer: harness.viewers[0],
+    viewing: harness.viewing,
+  }));
+  expect(toolbarController.mount).toHaveBeenCalledTimes(1);
+  expect(toolbarController.setModel).toHaveBeenCalledOnce();
+  expect(toolbarController.setModel).toHaveBeenCalledWith(harness.viewers[0].model);
+  expect(createModelAnalysis).toHaveBeenCalledWith(expect.objectContaining({
+    model: harness.viewers[0].model,
+    onDiagnostic: expect.any(Function),
+    onCategoryResult: expect.any(Function),
+  }));
+  expect(modelAnalysis.start).toHaveBeenCalledTimes(1);
+});
+
+test('reuses toolbar ownership, resets old ids, and suppresses stale analysis on model replacement', async () => {
+  const toolbarController = {
+    dispose: vi.fn(),
+    mount: vi.fn(),
+    setCategoryFailed: vi.fn(),
+    setCategoryReady: vi.fn(),
+    setModel: vi.fn(),
+  };
+  const analyses = [];
+  const categoryCallbacks = [];
+  const createToolbarController = vi.fn(() => toolbarController);
+  const createModelAnalysis = vi.fn(({ onCategoryResult }) => {
+    categoryCallbacks.push(onCategoryResult);
+    const analysis = { dispose: vi.fn(), start: vi.fn().mockResolvedValue(undefined) };
+    analyses.push(analysis);
+    return analysis;
+  });
+  const harness = createHarness({ createModelAnalysis, createToolbarController });
+  await harness.coordinator.execute(command());
+  const firstModel = harness.viewers[0].model;
+
+  await harness.coordinator.execute(command({
+    type: 'replace-model',
+    configuration: { modelUrn: 'bmV3LW1vZGVs' },
+    generations: { configuration: 2, model: 2, analysis: 2 },
+  }));
+  const replacementModel = harness.viewers[0].model;
+
+  expect(createToolbarController).toHaveBeenCalledTimes(1);
+  expect(analyses).toHaveLength(2);
+  expect(analyses[0].dispose).toHaveBeenCalledTimes(1);
+  expect(toolbarController.setModel.mock.calls.slice(-2)).toEqual([
+    [null],
+    [replacementModel],
+  ]);
+  categoryCallbacks[0]({ category: 'Doors', dbIds: [firstModel.id], status: 'ready' });
+  expect(harness.coordinator.getSnapshot().categories).toBeUndefined();
+  expect(toolbarController.setCategoryReady).not.toHaveBeenCalled();
+
+  categoryCallbacks[1]({ category: 'Doors', dbIds: [22], status: 'ready' });
+  expect(toolbarController.setCategoryReady).toHaveBeenCalledWith('Doors', [22]);
+  expect(harness.coordinator.getSnapshot().categories).toEqual({
+    Doors: { category: 'Doors', dbIds: [22], status: 'ready' },
+  });
+});
+
+test('disposes toolbar ownership before finishing a Viewer during credential reset', async () => {
+  const ownershipCalls = [];
+  const toolbarControllers = [];
+  const createToolbarController = vi.fn(() => {
+    const controller = {
+      dispose: vi.fn(() => ownershipCalls.push('toolbar-dispose')),
+      mount: vi.fn(),
+      setModel: vi.fn(),
+    };
+    toolbarControllers.push(controller);
+    return controller;
+  });
+  const harness = createHarness({ createToolbarController });
+  await harness.coordinator.execute(command());
+  harness.viewers[0].finish.mockImplementation(() => ownershipCalls.push('finish'));
+
+  await harness.coordinator.execute(command({
+    type: 'reset-runtime',
+    generations: {
+      configuration: 2,
+      authentication: 2,
+      runtime: 2,
+      model: 2,
+      analysis: 2,
+    },
+  }));
+
+  expect(ownershipCalls.slice(0, 2)).toEqual(['toolbar-dispose', 'finish']);
+  expect(toolbarControllers).toHaveLength(2);
+  expect(toolbarControllers[0].dispose).toHaveBeenCalledTimes(1);
+  expect(toolbarControllers[1].mount).toHaveBeenCalledTimes(1);
+});
+
+test('keeps the loaded model usable and reports native toolbar setup failure safely', async () => {
+  const logger = { error: vi.fn() };
+  const harness = createHarness({
+    createToolbarController: vi.fn(() => {
+      throw new Error('raw toolbar failure');
+    }),
+    logger,
+  });
+
+  await harness.coordinator.execute(command());
+
+  expect(harness.coordinator.getSnapshot()).toMatchObject({
+    phase: 'ready',
+    tone: 'error',
+    message: expect.stringContaining('category controls'),
+  });
+  expect(harness.viewers[0].model).not.toBeNull();
+  expect(logger.error).toHaveBeenCalledWith('APS category toolbar setup failed', {
+    code: 'APS_CATEGORY_TOOLBAR_SETUP_FAILED',
+  });
+  expect(JSON.stringify(harness.coordinator.getSnapshot())).not.toContain('raw toolbar failure');
+});
+
+test('keeps the model ready while exposing safe category-control cleanup feedback', async () => {
+  let publishFeedback;
+  const createToolbarController = vi.fn(({ onFeedback }) => {
+    publishFeedback = onFeedback;
+    return {
+      dispose: vi.fn(),
+      mount: vi.fn(),
+      setModel: vi.fn(),
+    };
+  });
+  const harness = createHarness({ createToolbarController });
+  await harness.coordinator.execute(command());
+
+  publishFeedback({
+    category: 'controls',
+    kind: 'error',
+    message: 'Category colors could not be updated safely. Retry loading the model.',
+  });
+
+  expect(harness.coordinator.getSnapshot()).toMatchObject({
+    phase: 'ready',
+    tone: 'error',
+    message: 'Category colors could not be updated safely. Retry loading the model.',
+  });
+  expect(harness.viewers[0].model).not.toBeNull();
 });
 
 test('reuses the runtime and Viewer for URN-only replacement while unloading the old model', async () => {

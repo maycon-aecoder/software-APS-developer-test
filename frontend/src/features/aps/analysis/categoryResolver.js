@@ -26,22 +26,33 @@ export function resolveCategoryInstances(candidates, category) {
   if (!Object.prototype.hasOwnProperty.call(CATEGORY_ALIASES, category)) {
     throw new TypeError('A supported category is required.');
   }
+  if (!Array.isArray(candidates)) throw createAnalysisFailure();
 
-  const resolved = [];
-  const seen = new Set();
-  for (const candidate of Array.isArray(candidates) ? candidates : []) {
-    const categories = new Set(
+  const entries = candidates.map((candidate) => ({
+    candidate,
+    categories: new Set(
       (Array.isArray(candidate?.categoryValues) ? candidate.categoryValues : [])
         .map(resolveCategoryAlias)
         .filter(Boolean),
-    );
+    ),
+  }));
+  const resolved = [];
+  const seen = new Set();
+  for (const entry of entries) {
+    const { candidate, categories } = entry;
+    if (
+      candidate?.expectedCategory === category
+      && (
+        !categories.has(category)
+        || categories.size !== 1
+        || candidate.classification !== 'instance'
+      )
+    ) throw createAnalysisFailure();
     if (!categories.has(category)) continue;
     if (categories.size !== 1) throw createAnalysisFailure();
     if (candidate.classification === 'excluded') continue;
-    if (
-      candidate.classification !== 'instance'
-      || !Number.isInteger(candidate.dbId)
-    ) {
+    if (candidate.classification === 'unknown') throw createAnalysisFailure();
+    if (candidate.classification !== 'instance' || !Number.isInteger(candidate.dbId)) {
       throw createAnalysisFailure();
     }
     if (!seen.has(candidate.dbId)) {
@@ -53,4 +64,3 @@ export function resolveCategoryInstances(candidates, category) {
 }
 
 export const SUPPORTED_CATEGORIES = Object.freeze(Object.keys(CATEGORY_ALIASES));
-

@@ -3,18 +3,36 @@ import Topbar from '../components/Topbar';
 import Sidebar from '../components/Sidebar';
 import { useAuth } from '../context/AuthContext';
 import { getApsConfiguration, saveApsConfiguration } from '../features/aps/api/configuration';
+import { createModelCategoryExperience } from '../features/aps/analysis/createModelCategoryExperience';
 import ApsSettingsPanel from '../features/aps/settings/ApsSettingsPanel';
 import { createApsSettingsController } from '../features/aps/settings/createApsSettingsController';
 import ApsViewerHost from '../features/aps/viewer/ApsViewerHost';
+import { createCategoryToolbarController } from '../features/aps/viewer/createCategoryToolbarController';
 import { createViewerLifecycleCoordinator } from '../features/aps/viewer/createViewerLifecycleCoordinator';
 import { createViewerTokenProvider } from '../features/aps/viewer/createViewerTokenProvider';
 import { loadViewerAssets } from '../features/aps/viewer/loadViewerAssets';
+
+function createCategoryColors() {
+  const Vector4 = globalThis.THREE?.Vector4;
+  if (typeof Vector4 !== 'function') throw new Error('APS_VIEWER_COLOR_UNAVAILABLE');
+  return {
+    Furniture: new Vector4(0.1, 0.55, 1, 1),
+    Walls: new Vector4(1, 0.6, 0.1, 1),
+    Doors: new Vector4(0.2, 0.8, 0.4, 1),
+  };
+}
 
 const HomePage = () => {
   const { user } = useAuth();
   const workspaceId = useId();
   const viewerCoordinator = useMemo(
     () => createViewerLifecycleCoordinator({
+      createModelAnalysis: createModelCategoryExperience,
+      createToolbarController: (options) => createCategoryToolbarController({
+        ...options,
+        colors: createCategoryColors(),
+        model: null,
+      }),
       loadAssets: loadViewerAssets,
       tokenProvider: createViewerTokenProvider(),
     }),

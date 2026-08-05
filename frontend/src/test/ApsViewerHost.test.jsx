@@ -48,3 +48,16 @@ test('shows actionable load failure feedback and exposes a keyboard retry action
   await userEvent.setup().click(screen.getByRole('button', { name: 'Retry loading model' }));
   expect(coordinator.retry).toHaveBeenCalledTimes(1);
 });
+
+test('announces a category-analysis failure and offers a keyboard-operable retry without hiding readiness', async () => {
+  const coordinator = createCoordinator({
+    phase: 'ready',
+    tone: 'error',
+    message: 'Doors could not be analyzed. Retry loading the model or verify its properties.',
+  });
+  render(<ApsViewerHost coordinator={coordinator} />);
+
+  expect(screen.getByRole('alert').textContent).toContain('Doors could not be analyzed.');
+  await userEvent.setup().click(screen.getByRole('button', { name: 'Retry loading model' }));
+  expect(coordinator.retry).toHaveBeenCalledTimes(1);
+});

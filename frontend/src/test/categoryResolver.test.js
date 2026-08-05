@@ -37,7 +37,7 @@ test('retains unique proven instances without assuming that an instance is a lea
     { dbId: 13, categoryValues: ['Doors'], classification: 'excluded', kind: 'type' },
     { dbId: 14, categoryValues: ['Doors'], classification: 'excluded', kind: 'category' },
     { dbId: 15, categoryValues: ['Doors'], classification: 'excluded', kind: 'container' },
-    { dbId: 16, categoryValues: [], classification: 'instance', kind: 'nested-part' },
+    { dbId: 16, categoryValues: ['Doors'], classification: 'excluded', kind: 'nested-part' },
   ];
 
   expect(resolveCategoryInstances(candidates, 'Doors')).toEqual([11, 12]);
@@ -73,6 +73,12 @@ test('fails conservatively when one record claims more than one supported catego
   ];
 
   expect(() => resolveCategoryInstances(candidates, 'Doors')).toThrow(
+    expect.objectContaining({ code: 'APS_CATEGORY_ANALYSIS_FAILED' }),
+  );
+});
+
+test('fails instead of treating an invalid candidate collection as zero matches', () => {
+  expect(() => resolveCategoryInstances({ dbId: 1 }, 'Doors')).toThrow(
     expect.objectContaining({ code: 'APS_CATEGORY_ANALYSIS_FAILED' }),
   );
 });

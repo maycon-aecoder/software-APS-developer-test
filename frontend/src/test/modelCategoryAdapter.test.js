@@ -1,24 +1,34 @@
 import { expect, test, vi } from 'vitest';
+import { resolveCategoryInstances } from '../features/aps/analysis/categoryResolver';
 import { readModelCategoryCandidates } from '../features/aps/analysis/modelCategoryAdapter';
 
-function createModel({ batchSizeEvidence = [], failProperties = false } = {}) {
-  const children = new Map([
+function createModel({
+  batchSizeEvidence = [],
+  failProperties = false,
+  children = new Map([
     [1, [2, 3, 2]],
     [2, [4]],
     [3, []],
-    [4, []],
-  ]);
-  const fragments = new Map([
-    [2, [20]],
-    [3, []],
+    [4, [5]],
+    [5, []],
+  ]),
+  fragments = new Map([
     [4, [40]],
-  ]);
-  const properties = new Map([
-    [1, []],
-    [2, [{ displayName: 'Category', displayValue: 'Revit Doors' }]],
-    [3, [{ displayName: 'Category', displayValue: 'Doors' }]],
-    [4, [{ displayName: 'Category', displayValue: 'Furniture' }]],
-  ]);
+    [5, [50]],
+  ]),
+  properties = new Map([
+    [4, [{ displayName: 'Category', displayValue: 'Revit Doors' }]],
+    [5, [{ displayName: 'Category', displayValue: 'Doors' }]],
+  ]),
+  names = new Map([
+    [1, 'Model'],
+    [2, 'Doors'],
+    [3, 'Organization'],
+    [4, 'Door instance'],
+    [5, 'Nested door geometry'],
+  ]),
+  propertyResult,
+} = {}) {
   const tree = {
     enumNodeChildren(dbId, callback, recursive) {
       const direct = children.get(dbId) ?? [];
@@ -31,6 +41,7 @@ function createModel({ batchSizeEvidence = [], failProperties = false } = {}) {
       expect(recursive).toBe(false);
       for (const fragmentId of fragments.get(dbId) ?? []) callback(fragmentId);
     },
+    getNodeName: (dbId) => names.get(dbId),
     getRootId: () => 1,
   };
   return {
@@ -41,7 +52,7 @@ function createModel({ batchSizeEvidence = [], failProperties = false } = {}) {
         onFailure('raw-property-error');
         return;
       }
-      onSuccess(dbIds.map((dbId) => ({
+      onSuccess(propertyResult ?? dbIds.map((dbId) => ({
         dbId,
         properties: properties.get(dbId) ?? [],
       })));
@@ -50,14 +61,18 @@ function createModel({ batchSizeEvidence = [], failProperties = false } = {}) {
   };
 }
 
-test('adapts public tree, direct-fragment, and Category property evidence without a leaf assumption', async () => {
+test('selects the first renderable descendant below a shallow Revit category without a leaf assumption', async () => {
   const model = createModel();
 
   await expect(readModelCategoryCandidates(model, { batchSize: 2 })).resolves.toEqual([
-    { dbId: 1, categoryValues: [], childCount: 2, classification: 'excluded' },
-    { dbId: 2, categoryValues: ['Revit Doors'], childCount: 1, classification: 'instance' },
-    { dbId: 4, categoryValues: ['Furniture'], childCount: 0, classification: 'instance' },
-    { dbId: 3, categoryValues: ['Doors'], childCount: 0, classification: 'unknown' },
+    {
+      dbId: 4,
+      categoryValues: ['Revit Doors'],
+      childCount: 1,
+      classification: 'instance',
+      expectedCategory: 'Doors',
+      parentId: 2,
+    },
   ]);
 });
 
@@ -67,7 +82,7 @@ test('uses bounded property batches and deduplicates tree callback ids', async (
 
   await readModelCategoryCandidates(model, { batchSize: 2 });
 
-  expect(batches).toEqual([[1, 2], [4, 3]]);
+  expect(batches).toEqual([[4]]);
   expect(batches.every((batch) => batch.length <= 2)).toBe(true);
 });
 
@@ -79,10 +94,19 @@ test('maps a public property read failure to a stable category-analysis failure'
   });
 });
 
+test('rejects a malformed successful property payload instead of reporting zero matches', async () => {
+  const model = createModel({ propertyResult: { results: [] } });
+
+  await expect(readModelCategoryCandidates(model)).rejects.toMatchObject({
+    code: 'APS_CATEGORY_ANALYSIS_FAILED',
+  });
+});
+
 test('fails conservatively when direct instance classification APIs are unavailable', async () => {
   const model = createModel();
   model.getObjectTree = vi.fn((onSuccess) => onSuccess({
     enumNodeChildren: (_dbId, callback) => callback(2),
+    getNodeName: () => 'Doors',
     getRootId: () => 1,
   }));
 
@@ -91,11 +115,66 @@ test('fails conservatively when direct instance classification APIs are unavaila
   });
 });
 
+test('uses category containers across early organizational levels and stops before nested geometry parts', async () => {
+  const model = createModel({
+    children: new Map([
+      [1, [7]],
+      [7, [6]],
+      [6, [2, 5]],
+      [2, [3, 4]],
+      [3, []],
+      [4, []],
+      [5, []],
+    ]),
+    fragments: new Map([
+      [2, [20]],
+      [3, [30]],
+      [5, [50]],
+    ]),
+    properties: new Map([
+      [1, []],
+      [6, [{ displayName: 'Category', displayValue: 'Doors' }]],
+      [2, [{ displayName: 'Category', displayValue: 'Doors' }]],
+      [3, [{ displayName: 'Category', displayValue: 'Revit Doors' }]],
+      [4, [{ displayName: 'Category', displayValue: 'Doors' }]],
+      [5, [{ displayName: 'Category', displayValue: 'Revit Doors' }]],
+    ]),
+    names: new Map([
+      [1, 'Model'],
+      [7, 'Discipline organization'],
+      [6, 'Doors'],
+      [2, 'Door instance A'],
+      [3, 'Nested door geometry'],
+      [4, 'Door organization'],
+      [5, 'Door instance B'],
+    ]),
+  });
+
+  const candidates = await readModelCategoryCandidates(model);
+
+  expect(resolveCategoryInstances(candidates, 'Doors')).toEqual([2, 5]);
+});
+
+test('fails conservatively when a category subtree and element Category property disagree', async () => {
+  const model = createModel({
+    properties: new Map([
+      [4, [{ displayName: 'Category', displayValue: 'Walls' }]],
+    ]),
+  });
+
+  const candidates = await readModelCategoryCandidates(model);
+
+  expect(() => resolveCategoryInstances(candidates, 'Doors')).toThrow(
+    expect.objectContaining({ code: 'APS_CATEGORY_ANALYSIS_FAILED' }),
+  );
+});
+
 test('fails instead of treating an invalid public tree root as an empty model', async () => {
   const model = createModel();
   model.getObjectTree = vi.fn((onSuccess) => onSuccess({
     enumNodeChildren: vi.fn(),
     enumNodeFragments: vi.fn(),
+    getNodeName: vi.fn(),
     getRootId: () => undefined,
   }));
 

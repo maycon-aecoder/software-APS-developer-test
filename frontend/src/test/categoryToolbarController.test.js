@@ -14,6 +14,8 @@ function createHarness({ toolbarInitiallyAvailable = true } = {}) {
   function Button(id) {
     this.id = id;
     this.container = document.createElement('div');
+    this.icon = document.createElement('span');
+    this.container.append(this.icon);
     this.setState = vi.fn((state) => {
       this.state = state;
     });
@@ -114,6 +116,8 @@ test('owns exactly one native group with labeled unavailable controls before cat
     expect(button.container.getAttribute('aria-disabled')).toBe('true');
     expect(button.container.getAttribute('aria-pressed')).toBe('false');
     expect(button.container.tabIndex).toBe(0);
+    expect(button.icon.textContent).toBe(category.at(0));
+    expect(button.icon.getAttribute('aria-hidden')).toBe('true');
     expect(button.tooltip).toBe(`Toggle ${category} color`);
   }
 });
@@ -234,6 +238,78 @@ test('reset clears all feature-owned theming and makes every control unavailable
     Furniture: { active: false, matchCount: 0, status: 'pending' },
     Walls: { active: false, matchCount: 0, status: 'pending' },
   });
+});
+
+test('model replacement retains one toolbar but clears old ids before accepting the new model', () => {
+  const harness = createHarness();
+  mountAvailableToolbar(harness);
+  harness.controller.setCategoryReady('Furniture', [1]);
+  findButton(harness, 'Furniture').onClick();
+  harness.viewer.setThemingColor.mockClear();
+  const replacementModel = { id: 'replacement-model' };
+
+  expect(typeof harness.controller.setModel).toBe('function');
+  harness.controller.setModel(replacementModel);
+
+  expect(harness.controls).toHaveLength(1);
+  expect(harness.viewer.setThemingColor.mock.calls).toEqual([
+    [1, null, harness.model],
+  ]);
+  expect(harness.controls[0].controls.every((control) => control.state === 'disabled')).toBe(true);
+
+  harness.viewer.setThemingColor.mockClear();
+  harness.controller.setCategoryReady('Furniture', [10]);
+  findButton(harness, 'Furniture').onClick();
+  expect(harness.viewer.setThemingColor.mock.calls).toEqual([
+    [10, harness.colors.Furniture, replacementModel],
+  ]);
+});
+
+test('model replacement disables stale controls and reports a safe error when color cleanup fails', () => {
+  const harness = createHarness();
+  mountAvailableToolbar(harness);
+  harness.controller.setCategoryReady('Furniture', [1]);
+  findButton(harness, 'Furniture').onClick();
+  harness.viewer.setThemingColor.mockImplementation((_dbId, color) => {
+    if (color === null) throw new Error('raw Viewer cleanup failure');
+  });
+  const replacementModel = { id: 'replacement-model' };
+
+  expect(() => harness.controller.setModel(replacementModel)).not.toThrow();
+
+  expect(harness.controls[0].controls.every((control) => control.state === 'disabled')).toBe(true);
+  expect(harness.feedback.at(-1)).toEqual({
+    category: 'controls',
+    kind: 'error',
+    message: 'Category colors could not be updated safely. Retry loading the model.',
+  });
+  expect(JSON.stringify(harness.feedback)).not.toContain('raw Viewer cleanup failure');
+
+  harness.controller.setCategoryReady('Furniture', [10]);
+  findButton(harness, 'Furniture').onClick();
+  expect(harness.viewer.setThemingColor).toHaveBeenLastCalledWith(
+    10,
+    harness.colors.Furniture,
+    replacementModel,
+  );
+});
+
+test('dispose releases toolbar ownership even when active color cleanup fails', () => {
+  const harness = createHarness();
+  mountAvailableToolbar(harness);
+  harness.controller.setCategoryReady('Doors', [9]);
+  const staleDoor = findButton(harness, 'Doors');
+  staleDoor.onClick();
+  harness.viewer.setThemingColor.mockImplementation((_dbId, color) => {
+    if (color === null) throw new Error('raw Viewer cleanup failure');
+  });
+
+  expect(() => harness.controller.dispose()).not.toThrow();
+  staleDoor.onClick();
+
+  expect(harness.toolbar.removeControl).toHaveBeenCalledWith('aps-category-controls');
+  expect(harness.controls).toHaveLength(0);
+  expect(harness.viewer.setThemingColor).toHaveBeenCalledTimes(2);
 });
 
 test('dispose is idempotent, removes native ownership/listeners, and makes stale controls inert', () => {

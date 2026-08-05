@@ -15,7 +15,7 @@ function uniqueDbIds(dbIds) {
 
 export function createCategoryToolbarController({
   colors,
-  model,
+  model: initialModel,
   onFeedback = () => {},
   viewer,
   viewing,
@@ -24,11 +24,29 @@ export function createCategoryToolbarController({
     TOOLBAR_CATEGORIES.map((category) => [category, createInitialCategoryState()]),
   );
   const buttons = new Map();
+  let activeModel = initialModel;
   let disposed = false;
   let group = null;
   let listenerAttached = false;
   let mounted = false;
   let toolbar = null;
+
+  function reportControlsFailure() {
+    onFeedback({
+      category: 'controls',
+      kind: 'error',
+      message: 'Category colors could not be updated safely. Retry loading the model.',
+    });
+  }
+
+  function setColor(dbId, color) {
+    try {
+      viewer.setThemingColor(dbId, color, activeModel);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   function syncButton(category) {
     const button = buttons.get(category);
@@ -46,26 +64,36 @@ export function createCategoryToolbarController({
   }
 
   function applyCategory(category) {
+    if (!activeModel) return false;
     const categoryState = categories[category];
+    let succeeded = true;
     for (const dbId of categoryState.dbIds) {
-      viewer.setThemingColor(dbId, colors[category], model);
+      if (!setColor(dbId, colors[category])) succeeded = false;
     }
+    return succeeded;
   }
 
   function clearIds(dbIds) {
-    for (const dbId of dbIds) viewer.setThemingColor(dbId, null, model);
+    if (!activeModel) return true;
+    let succeeded = true;
+    for (const dbId of dbIds) {
+      if (!setColor(dbId, null)) succeeded = false;
+    }
+    return succeeded;
   }
 
   function rebuildActiveCategories() {
+    let succeeded = true;
     for (const category of TOOLBAR_CATEGORIES) {
-      if (categories[category].active) applyCategory(category);
+      if (categories[category].active && !applyCategory(category)) succeeded = false;
     }
+    return succeeded;
   }
 
   function toggle(category) {
     if (disposed) return;
     const categoryState = categories[category];
-    if (categoryState.status !== 'ready') return;
+    if (categoryState.status !== 'ready' || !activeModel) return;
     if (categoryState.dbIds.length === 0) {
       categoryState.active = false;
       syncButton(category);
@@ -79,11 +107,17 @@ export function createCategoryToolbarController({
 
     if (categoryState.active) {
       categoryState.active = false;
-      clearIds(categoryState.dbIds);
-      rebuildActiveCategories();
+      const cleared = clearIds(categoryState.dbIds);
+      const rebuilt = rebuildActiveCategories();
+      if (!cleared || !rebuilt) reportControlsFailure();
     } else {
       categoryState.active = true;
-      applyCategory(category);
+      if (!applyCategory(category)) {
+        categoryState.active = false;
+        clearIds(categoryState.dbIds);
+        rebuildActiveCategories();
+        reportControlsFailure();
+      }
     }
     syncButton(category);
   }
@@ -92,6 +126,12 @@ export function createCategoryToolbarController({
     const button = new viewing.UI.Button(`aps-category-${category.toLowerCase()}`);
     const label = `Toggle ${category} color`;
     button.setToolTip(label);
+    if (!button.icon) throw new Error('APS_CATEGORY_BUTTON_ICON_UNAVAILABLE');
+    button.icon.textContent = category.at(0);
+    button.icon.setAttribute('aria-hidden', 'true');
+    button.icon.style.fontFamily = 'sans-serif';
+    button.icon.style.fontSize = '13px';
+    button.icon.style.fontWeight = '700';
     button.container.setAttribute('role', 'button');
     button.container.setAttribute('aria-label', label);
     button.container.tabIndex = 0;
@@ -110,8 +150,13 @@ export function createCategoryToolbarController({
 
   function removeToolbarListener() {
     if (!listenerAttached) return;
-    viewer.removeEventListener(viewing.TOOLBAR_CREATED_EVENT, installControls);
-    listenerAttached = false;
+    try {
+      viewer.removeEventListener(viewing.TOOLBAR_CREATED_EVENT, installControls);
+    } catch {
+      reportControlsFailure();
+    } finally {
+      listenerAttached = false;
+    }
   }
 
   function installControls() {
@@ -138,9 +183,10 @@ export function createCategoryToolbarController({
     if (disposed || !Object.prototype.hasOwnProperty.call(categories, category)) return;
     const categoryState = categories[category];
     if (categoryState.active) {
-      clearIds(categoryState.dbIds);
+      const cleared = clearIds(categoryState.dbIds);
       categoryState.active = false;
-      rebuildActiveCategories();
+      const rebuilt = rebuildActiveCategories();
+      if (!cleared || !rebuilt) reportControlsFailure();
     }
     categoryState.dbIds = uniqueDbIds(dbIds);
     categoryState.status = 'ready';
@@ -151,9 +197,10 @@ export function createCategoryToolbarController({
     if (disposed || !Object.prototype.hasOwnProperty.call(categories, category)) return;
     const categoryState = categories[category];
     if (categoryState.active) {
-      clearIds(categoryState.dbIds);
+      const cleared = clearIds(categoryState.dbIds);
       categoryState.active = false;
-      rebuildActiveCategories();
+      const rebuilt = rebuildActiveCategories();
+      if (!cleared || !rebuilt) reportControlsFailure();
     }
     categoryState.dbIds = [];
     categoryState.status = 'failed';
@@ -165,6 +212,12 @@ export function createCategoryToolbarController({
     });
   }
 
+  function setModel(nextModel) {
+    if (disposed || nextModel === activeModel) return;
+    reset();
+    activeModel = nextModel;
+  }
+
   function reset() {
     const themedIds = new Set();
     for (const category of TOOLBAR_CATEGORIES) {
@@ -173,26 +226,37 @@ export function createCategoryToolbarController({
         for (const dbId of categoryState.dbIds) themedIds.add(dbId);
       }
     }
-    clearIds(themedIds);
+    const cleared = clearIds(themedIds);
     for (const category of TOOLBAR_CATEGORIES) {
       categories[category] = createInitialCategoryState();
       syncButton(category);
     }
+    if (!cleared) reportControlsFailure();
   }
 
   function dispose() {
     if (disposed) return;
     reset();
+    disposed = true;
     removeToolbarListener();
     for (const button of buttons.values()) {
-      button.releaseKeyboard?.();
+      try {
+        button.releaseKeyboard?.();
+      } catch {
+        reportControlsFailure();
+      }
       button.onClick = () => {};
     }
-    if (toolbar && group) toolbar.removeControl(group.id);
+    if (toolbar && group) {
+      try {
+        toolbar.removeControl(group.id);
+      } catch {
+        reportControlsFailure();
+      }
+    }
     buttons.clear();
     group = null;
     toolbar = null;
-    disposed = true;
   }
 
   function getSnapshot() {
@@ -214,5 +278,6 @@ export function createCategoryToolbarController({
     reset,
     setCategoryFailed,
     setCategoryReady,
+    setModel,
   });
 }

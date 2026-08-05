@@ -20,6 +20,12 @@ const MODEL_FAILURE_MESSAGE =
   'The configured model could not be opened. Verify its URN, translation, and APS application access, then retry.';
 const TOKEN_TEMPORARY_MESSAGE =
   'APS access is temporarily unavailable. Check your connection and retry loading the model.';
+const CATEGORY_ANALYSIS_MESSAGE =
+  'Some model categories could not be analyzed. Retry loading the model or verify its properties.';
+const CATEGORY_CONTROLS_MESSAGE =
+  'The model is ready, but category controls could not be prepared. Retry loading the model.';
+const SUPPORTED_CATEGORY_RESULTS = new Set(['Furniture', 'Walls', 'Doors', 'Windows']);
+const TOOLBAR_CATEGORY_RESULTS = new Set(['Furniture', 'Walls', 'Doors']);
 
 function createFailure(code) {
   return Object.assign(new Error(code), { code });
@@ -103,6 +109,8 @@ function initializeViewing(viewing, options) {
 }
 
 export function createViewerLifecycleCoordinator({
+  createModelAnalysis,
+  createToolbarController,
   loadAssets,
   tokenProvider,
   onStateChange = () => {},
@@ -123,6 +131,8 @@ export function createViewerLifecycleCoordinator({
   let registration = null;
   let viewer = null;
   let model = null;
+  let modelAnalysis = null;
+  let toolbarController = null;
   const subscribers = new Set();
 
   function publish(nextSnapshot) {
@@ -145,6 +155,149 @@ export function createViewerLifecycleCoordinator({
     return task;
   }
 
+  function logCategoryCleanupFailure() {
+    logger.error('APS category analysis cleanup failed', {
+      code: 'APS_CATEGORY_CLEANUP_FAILED',
+    });
+  }
+
+  function resetModelExperience() {
+    const ownedAnalysis = modelAnalysis;
+    modelAnalysis = null;
+    try {
+      ownedAnalysis?.dispose();
+    } catch {
+      logCategoryCleanupFailure();
+    }
+    try {
+      toolbarController?.setModel(null);
+    } catch {
+      logCategoryCleanupFailure();
+    }
+  }
+
+  function disposeToolbar() {
+    const ownedToolbar = toolbarController;
+    toolbarController = null;
+    try {
+      ownedToolbar?.dispose();
+    } catch {
+      logCategoryCleanupFailure();
+    }
+  }
+
+  function handleToolbarFeedback(controller, feedback) {
+    if (controller !== toolbarController || !model) return;
+    if (
+      typeof feedback?.message !== 'string'
+      || (
+        !SUPPORTED_CATEGORY_RESULTS.has(feedback.category)
+        && !(feedback.category === 'controls' && feedback.kind === 'error')
+      )
+    ) return;
+    publish({
+      ...snapshot,
+      message: feedback.message,
+      tone: feedback.kind === 'error' ? 'error' : 'info',
+    });
+  }
+
+  function ensureToolbarController() {
+    if (toolbarController || !createToolbarController) return true;
+    let candidate = null;
+    try {
+      candidate = createToolbarController({
+        viewer,
+        viewing,
+        onFeedback: (feedback) => handleToolbarFeedback(candidate, feedback),
+      });
+      toolbarController = candidate;
+      candidate.mount();
+      return true;
+    } catch {
+      if (toolbarController === candidate) toolbarController = null;
+      try {
+        candidate?.dispose();
+      } catch {
+        logCategoryCleanupFailure();
+      }
+      logger.error('APS category toolbar setup failed', {
+        code: 'APS_CATEGORY_TOOLBAR_SETUP_FAILED',
+      });
+      return false;
+    }
+  }
+
+  function publishCategoryResult(command, analysis, result) {
+    if (
+      analysis !== modelAnalysis
+      || !isOperationCurrent(command)
+      || !SUPPORTED_CATEGORY_RESULTS.has(result?.category)
+      || !['ready', 'failed'].includes(result?.status)
+    ) return;
+    const safeResult = result.status === 'ready'
+      ? {
+        category: result.category,
+        dbIds: [...new Set((Array.isArray(result.dbIds) ? result.dbIds : []).filter(Number.isInteger))],
+        status: 'ready',
+      }
+      : { category: result.category, status: 'failed' };
+    if (TOOLBAR_CATEGORY_RESULTS.has(result.category)) {
+      try {
+        if (safeResult.status === 'ready') {
+          toolbarController?.setCategoryReady(result.category, safeResult.dbIds);
+        } else {
+          toolbarController?.setCategoryFailed(result.category);
+        }
+      } catch {
+        logger.error('APS category toolbar update failed', {
+          code: 'APS_CATEGORY_TOOLBAR_UPDATE_FAILED',
+          category: result.category,
+        });
+        publish({ ...snapshot, message: CATEGORY_CONTROLS_MESSAGE, tone: 'error' });
+      }
+    }
+    publish({
+      ...snapshot,
+      categories: {
+        ...(snapshot.categories ?? {}),
+        [result.category]: safeResult,
+      },
+    });
+  }
+
+  function startModelAnalysis(command) {
+    if (!createModelAnalysis || !model) return;
+    let analysis = null;
+    try {
+      analysis = createModelAnalysis({
+        model,
+        onDiagnostic: (diagnostic) => {
+          if (analysis !== modelAnalysis || !isOperationCurrent(command)) return;
+          const safeDiagnostic = {
+            code: 'APS_CATEGORY_ANALYSIS_FAILED',
+            stage: diagnostic?.stage === 'resolve' ? 'resolve' : 'read',
+          };
+          if (SUPPORTED_CATEGORY_RESULTS.has(diagnostic?.category)) {
+            safeDiagnostic.category = diagnostic.category;
+          }
+          logger.error('APS category analysis failed', safeDiagnostic);
+        },
+        onCategoryResult: (result) => publishCategoryResult(command, analysis, result),
+      });
+      modelAnalysis = analysis;
+      Promise.resolve(analysis.start()).catch(() => {
+        if (analysis !== modelAnalysis || !isOperationCurrent(command)) return;
+        logger.error('APS category analysis failed', { code: 'APS_CATEGORY_ANALYSIS_FAILED' });
+        publish({ ...snapshot, message: CATEGORY_ANALYSIS_MESSAGE, tone: 'error' });
+      });
+    } catch {
+      if (modelAnalysis === analysis) modelAnalysis = null;
+      logger.error('APS category analysis failed', { code: 'APS_CATEGORY_ANALYSIS_FAILED' });
+      publish({ ...snapshot, message: CATEGORY_ANALYSIS_MESSAGE, tone: 'error' });
+    }
+  }
+
   async function teardownRuntime() {
     const ownedViewer = viewer;
     const ownedViewing = viewing;
@@ -155,6 +308,9 @@ export function createViewerLifecycleCoordinator({
     registration = null;
     initialization = null;
     let cleanupFailed = false;
+
+    resetModelExperience();
+    disposeToolbar();
 
     try {
       ownedRegistration?.release();
@@ -236,11 +392,13 @@ export function createViewerLifecycleCoordinator({
 
   async function loadCurrentModel(command) {
     if (!viewer || !viewing || !isOperationCurrent(command)) return;
+    resetModelExperience();
     if (model) {
       viewer.unloadModel(model);
       model = null;
     }
     if (!isOperationCurrent(command)) return;
+    let toolbarReady = ensureToolbarController();
 
     const documentObject = await loadDocument(
       viewing,
@@ -257,11 +415,21 @@ export function createViewerLifecycleCoordinator({
     }
 
     model = loadedModel;
+    try {
+      toolbarController?.setModel(model);
+    } catch {
+      logCategoryCleanupFailure();
+      toolbarReady = false;
+    }
     publish({
       phase: 'ready',
       message: 'The configured 3D model is ready.',
       generations: { ...command.generations },
     });
+    if (!toolbarReady) {
+      publish({ ...snapshot, message: CATEGORY_CONTROLS_MESSAGE, tone: 'error' });
+    }
+    startModelAnalysis(command);
   }
 
   async function perform(command) {
